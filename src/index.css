@@ -171,3 +171,23 @@ table :where(th, td) {
 :root[data-theme='light'] .text-violet-300 svg:not([class*='text-']) {
   color: #c4b5fd;
 }
+
+/* Reports "jump to product" search: briefly highlights the row/block it jumped to.
+   Yellow reads clearly on both the dark and the light theme. */
+.jump-highlight {
+  outline: 3px solid #facc15;
+  outline-offset: -3px;
+  animation: jump-flash 0.8s ease-in-out 3;
+}
+tr.jump-highlight > td {
+  background-color: rgba(250, 204, 21, 0.3);
+}
+div.jump-highlight {
+  outline-offset: 2px;
+  box-shadow: 0 0 24px rgba(250, 204, 21, 0.45);
+}
+@keyframes jump-flash {
+  50% {
+    outline-color: rgba(250, 204, 21, 0.35);
+  }
+}

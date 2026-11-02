@@ -180,6 +180,147 @@ function OffscreenPdf({ job, width, onDone, children }) {
   )
 }
 
+// ---------- ช่องค้นหารหัส/ชื่อสินค้า: กระโดดไปที่รายการ (ไม่กรองรายการทิ้ง) ----------
+
+const PAGE_SIZE = 100
+const JUMP_LIMIT = 10
+
+// `items`: [{ id, code, name }] in report order. Picking one calls onJump(id).
+// Ctrl+F / Cmd+F focuses the box while a report is open; pressing it again while the box
+// already has focus falls through to the browser's own find.
+function ReportJumpSearch({ items, onJump }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const [active, setActive] = useState(0)
+  const [notFound, setNotFound] = useState(false)
+  const inputRef = useRef(null)
+  const q = query.trim().toLowerCase()
+
+  // best matches first: exact code, code prefix, code contains, then name contains
+  const matches = useMemo(() => {
+    if (!q) return []
+    const ranked = []
+    items.forEach((it, idx) => {
+      const code = it.code.toLowerCase()
+      const rank = code === q ? 0 : code.startsWith(q) ? 1 : code.includes(q) ? 2 : (it.name ?? '').toLowerCase().includes(q) ? 3 : -1
+      if (rank >= 0) ranked.push({ it, rank, idx })
+    })
+    ranked.sort((a, b) => a.rank - b.rank || a.idx - b.idx)
+    return ranked.slice(0, JUMP_LIMIT).map((r) => r.it)
+  }, [items, q])
+
+  useEffect(() => {
+    function onKey(e) {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') {
+        if (document.activeElement === inputRef.current) return
+        e.preventDefault()
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  function choose(item) {
+    setQuery(item.code)
+    setOpen(false)
+    setNotFound(false)
+    onJump(item.id)
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setOpen(true)
+      setActive((a) => Math.min(a + 1, Math.max(0, matches.length - 1)))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActive((a) => Math.max(0, a - 1))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (!q) return
+      const exact = items.find((it) => it.code.toLowerCase() === q)
+      if (exact) return choose(exact)
+      if (matches.length) return choose(matches[Math.min(active, matches.length - 1)])
+      setNotFound(true)
+      setOpen(false)
+    } else if (e.key === 'Escape') {
+      setOpen(false)
+    }
+  }
+
+  return (
+    <div className="relative w-full max-w-md">
+      <Search size={15} className="pointer-events-none absolute left-3 top-[19px] -translate-y-1/2 text-[var(--text-faint)]" />
+      <input
+        ref={inputRef}
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value)
+          setActive(0)
+          setOpen(true)
+          setNotFound(false)
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={handleKeyDown}
+        placeholder="ค้นหารหัส/ชื่อสินค้าในรายงาน (Ctrl+F)"
+        role="combobox"
+        aria-expanded={open && matches.length > 0}
+        aria-autocomplete="list"
+        className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-input)] py-2 pl-9 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-faint)] focus:border-blue-500 focus:outline-none"
+      />
+      {open && matches.length > 0 && (
+        <ul role="listbox" className="absolute left-0 right-0 top-full z-30 mt-1 max-h-80 overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] py-1 shadow-2xl">
+          {matches.map((it, i) => (
+            <li key={it.id} role="option" aria-selected={i === active}>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onMouseEnter={() => setActive(i)}
+                onClick={() => choose(it)}
+                className={`flex w-full items-baseline gap-3 px-3 py-2 text-left text-sm ${i === active ? 'bg-[var(--bg-hover-strong)]' : ''}`}
+              >
+                <span className="whitespace-nowrap font-mono text-[var(--text-accent)]">{it.code}</span>
+                <span className="truncate text-[var(--text-secondary)]">{it.name}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {notFound && <p className="mt-1.5 text-xs text-amber-300">ไม่พบรหัส/ชื่อสินค้านี้ในรายงาน</p>}
+    </div>
+  )
+}
+
+// Jump-to logic shared by both reports: switch to the page holding the item, scroll it to
+// the middle of the screen and highlight it for a few seconds.
+function useJumpTo(list, pagination, containerRef) {
+  const [target, setTarget] = useState(null) // { id, tick }
+  useEffect(() => {
+    if (!target) return
+    const raf = requestAnimationFrame(() => {
+      const el = containerRef.current?.querySelector(`[data-jump-id="${target.id}"]`)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+    const timer = setTimeout(() => setTarget(null), 2800)
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(timer)
+    }
+  }, [target, containerRef])
+  return {
+    highlightId: target?.id ?? null,
+    jump: (id) => {
+      const idx = list.findIndex((x) => x.id === id)
+      if (idx < 0) return
+      pagination.goTo(Math.floor(idx / PAGE_SIZE) + 1)
+      setTarget({ id, tick: Date.now() })
+    },
+  }
+}
+
 // Date range inputs + "ค้นหาตามวันที่": the range only applies when the button is pressed
 // (or Enter), so half-typed dates don't reshuffle the report.
 // `optional`: blank dates are allowed and mean "from the beginning" / "up to now".
@@ -291,7 +432,7 @@ function ItemLedgerReport() {
       .filter(({ ins, outs }) => pickedIds || includeIdle || ins.length > 0 || outs.length > 0)
       .map(({ product, ins, outs }) => ({ product, ledger: buildItemLedger(product, ins, outs, bounds) }))
   }, [isList, isMulti, selected, sortedProducts, stockIns, stockOuts, includeIdle, bounds])
-  const ledgerPage = usePagination(allLedgers ?? [], 100, `${isList}-${includeIdle}-${isMulti ? selected.ids.join(',') : ''}`)
+  const ledgerPage = usePagination(allLedgers ?? [], PAGE_SIZE, `${isList}-${includeIdle}-${isMulti ? selected.ids.join(',') : ''}`)
 
   // ticked product blocks (list modes only); reset whenever a different report is opened
   const selection = useSelection(selected)
@@ -301,6 +442,12 @@ function ItemLedgerReport() {
   )
   const selCount = selectedLedgers.length
   const allChecked = !!allLedgers?.length && selCount === allLedgers.length
+
+  const jumpItems = useMemo(
+    () => (allLedgers ?? []).map(({ product }) => ({ id: product.id, code: product.code, name: product.name })),
+    [allLedgers],
+  )
+  const jumper = useJumpTo(jumpItems, ledgerPage, printRef)
   const exportBase = selected === 'ALL' ? 'item-ledger-all' : isMulti ? 'item-ledger-multi' : `item-ledger-${selected?.code}`
 
   function exportBlocks() {
@@ -411,6 +558,12 @@ function ItemLedgerReport() {
         </div>
       )}
 
+      {isList && allLedgers.length > 0 && (
+        <div className="mb-3">
+          <ReportJumpSearch items={jumpItems} onJump={jumper.jump} />
+        </div>
+      )}
+
       {isList && (
         <div className="mb-4 flex flex-col gap-2 text-xs text-[var(--text-muted)] sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-3">
@@ -454,6 +607,7 @@ function ItemLedgerReport() {
                   selectable
                   checked={selection.ids.has(product.id)}
                   onToggle={() => selection.toggle(product.id)}
+                  highlighted={jumper.highlightId === product.id}
                 />
               ))
             : singleLedger && <ItemLedgerTable product={selected} ledger={singleLedger} />}
@@ -503,9 +657,14 @@ function round2(n) {
   return Math.round((Number(n) || 0) * 100) / 100
 }
 
-function ItemLedgerTable({ product, ledger, selectable = false, checked = false, onToggle }) {
+function ItemLedgerTable({ product, ledger, selectable = false, checked = false, onToggle, highlighted = false }) {
   return (
-    <div className={`rounded-xl border bg-[var(--bg-card)] p-5 ${checked ? 'border-blue-500/60' : 'border-[var(--border-color)]'}`}>
+    <div
+      data-jump-id={selectable ? product.id : undefined}
+      className={`rounded-xl border bg-[var(--bg-card)] p-5 ${checked ? 'border-blue-500/60' : 'border-[var(--border-color)]'} ${
+        highlighted ? 'jump-highlight' : ''
+      }`}
+    >
       <div className="mb-1 text-center text-lg font-bold text-[var(--text-primary)]">รายงานสินค้าและวัตถุดิบ</div>
       <div className="mb-4 flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:gap-6">
         {selectable && (
@@ -677,7 +836,8 @@ function AllStockSummaryReport() {
     )
   }, [products, stockIns, stockOuts, fromSortable, toSortable])
 
-  const summaryPage = usePagination(rows, 100, `${fromSortable}-${toSortable}`)
+  const summaryPage = usePagination(rows, PAGE_SIZE, `${fromSortable}-${toSortable}`)
+  const jumper = useJumpTo(rows, summaryPage, printRef)
 
   const totals = useMemo(() => sumSummaryTotals(rows), [rows])
 
@@ -722,11 +882,10 @@ function AllStockSummaryReport() {
         <DateRangeBar from={range.from} to={range.to} onApply={(from, to) => setRange({ from, to })} />
         <ExportButtons onPdf={handleExportPdf} onExcel={handleExportExcel} count={selCount} busy={!!pdfJob} />
       </div>
-      {selCount > 0 && (
-        <div className="mb-4 flex">
-          <SelectionInfo count={selCount} onClear={selection.clear} />
-        </div>
-      )}
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        {rows.length > 0 && <ReportJumpSearch items={rows} onJump={jumper.jump} />}
+        <SelectionInfo count={selCount} onClear={selection.clear} />
+      </div>
 
       {/* Sized to A4 landscape (297 x 210mm ≈ 1123 x 794px @96dpi) so the on-screen report
           previews the way it will print/export. */}
@@ -737,6 +896,7 @@ function AllStockSummaryReport() {
           fromThai={fromThai}
           toThai={toThai}
           empty={rows.length === 0}
+          highlightId={jumper.highlightId}
           select={{
             ids: selection.ids,
             toggle: selection.toggle,
@@ -775,7 +935,7 @@ function AllStockSummaryReport() {
 
 // One A4-landscape sheet of the All-Stock Summary. `select` (on-screen only) adds the
 // checkbox column, which is marked data-pdf-hide so it never reaches the PDF.
-function SummarySheet({ rows, totals, fromThai, toThai, empty = false, showTotals = true, select = null }) {
+function SummarySheet({ rows, totals, fromThai, toThai, empty = false, showTotals = true, select = null, highlightId = null }) {
   return (
     <div className="report-a4-page min-h-[794px] rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
       <div className="text-center text-lg font-bold text-[var(--text-primary)]">สรุปยอดสินค้าคงเหลือ รวมทุกคลัง</div>
@@ -811,7 +971,13 @@ function SummarySheet({ rows, totals, fromThai, toThai, empty = false, showTotal
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.id} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
+              <tr
+                key={r.id}
+                data-jump-id={select ? r.id : undefined}
+                className={`border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] ${
+                  highlightId === r.id ? 'jump-highlight' : ''
+                }`}
+              >
                 {select && (
                   <td data-pdf-hide className="px-2 py-2 text-center">
                     <Checkbox checked={select.ids.has(r.id)} onChange={() => select.toggle(r.id)} label={`เลือก ${r.code}`} />

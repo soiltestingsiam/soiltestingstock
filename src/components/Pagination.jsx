@@ -25,6 +25,8 @@ export function usePagination(items, pageSize = 100, resetKey) {
     goPrev: () => setPage((p) => Math.max(1, p - 1)),
     goNext: () => setPage((p) => Math.min(totalPages, p + 1)),
     goLast: () => setPage(totalPages),
+    // jump straight to a page (1-based), clamped to the valid range
+    goTo: (n) => setPage(Math.min(totalPages, Math.max(1, Math.floor(Number(n)) || 1))),
   }
 }
 
