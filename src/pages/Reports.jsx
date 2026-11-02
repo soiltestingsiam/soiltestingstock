@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { FileSpreadsheet, FileDown, PackageSearch, CalendarRange, ClipboardList, ArrowLeft, ArrowRight, Search, Loader2, XCircle } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
 import ProductPickerModal from '../components/ProductPickerModal'
+import { exportItemLedgerPdf } from '../components/ItemLedgerPrint'
 import DateTextInput from '../components/DateTextInput'
 import Pagination, { usePagination } from '../components/Pagination'
 import { useStore } from '../store/useStore'
@@ -73,7 +74,7 @@ export default function Reports() {
   )
 }
 
-function ExportButtons({ onPdf, onExcel, count = 0, busy = false }) {
+function ExportButtons({ onPdf, onExcel, count = 0, busy = false, busyText = null }) {
   const suffix = count > 0 ? ` (เลือก ${formatNumber(count)})` : ''
   return (
     <div className="flex flex-wrap gap-2">
@@ -82,7 +83,7 @@ function ExportButtons({ onPdf, onExcel, count = 0, busy = false }) {
         disabled={busy}
         className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-300 hover:bg-red-500/20 disabled:cursor-wait disabled:opacity-60"
       >
-        {busy ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} EXPORT - PDF{suffix}
+        {busy ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} {busy && busyText ? busyText : `EXPORT - PDF${suffix}`}
       </button>
       <button
         onClick={onExcel}
@@ -364,28 +365,6 @@ function DateRangeBar({ from, to, onApply, optional = false }) {
   )
 }
 
-// ledger blocks per PDF capture: grouped by row count so one capture stays well under
-// the browser's maximum canvas height
-const LEDGER_ROWS_PER_PDF_CHUNK = 120
-
-function chunkLedgers(blocks) {
-  const out = []
-  let cur = []
-  let rows = 0
-  blocks.forEach((b) => {
-    const n = b.ledger.rows.length + 8 // + title/header/summary rows
-    if (cur.length && rows + n > LEDGER_ROWS_PER_PDF_CHUNK) {
-      out.push(cur)
-      cur = []
-      rows = 0
-    }
-    cur.push(b)
-    rows += n
-  })
-  if (cur.length) out.push(cur)
-  return out
-}
-
 function ItemLedgerReport() {
   const products = useStore((s) => s.products)
   const stockIns = useStore((s) => s.stockIns)
@@ -400,7 +379,7 @@ function ItemLedgerReport() {
   // like the spec, the report lists every movement by default; a start date adds ยอดยกมา
   const [range, setRange] = useState({ from: '', to: '' })
   const printRef = useRef(null)
-  const [pdfJob, setPdfJob] = useState(null)
+  const [pdfProgress, setPdfProgress] = useState(null) // null | { done, total } while exporting
 
   const isMulti = !!selected?.multi
   const isList = selected === 'ALL' || isMulti // a list of product blocks (vs one product)
@@ -513,13 +492,25 @@ function ItemLedgerReport() {
     exportAoaToExcel(aoa, `${exportBase}${selCount > 0 ? '-selected' : ''}.xlsx`, 'ItemLedger')
   }
 
-  function handleExportPdf() {
-    if (!selected || pdfJob) return
-    if (isList && selCount > 0) {
-      setPdfJob({ filename: `${exportBase}-selected.pdf` })
-      return
+  // CD-style print layout (see ItemLedgerPrint.jsx). ALL without a selection exports the
+  // products on the current page, as before.
+  async function handleExportPdf() {
+    if (!selected || pdfProgress) return
+    const blocks = isList && selCount === 0 ? ledgerPage.pageItems : exportBlocks()
+    if (!blocks.length) return
+    setPdfProgress({ done: 0, total: 0 })
+    try {
+      await exportItemLedgerPdf({
+        blocks,
+        range,
+        filename: `${exportBase}${isList && selCount > 0 ? '-selected' : ''}.pdf`,
+        onProgress: (done, total) => setPdfProgress({ done, total }),
+      })
+    } catch (err) {
+      alert(`สร้าง PDF ไม่สำเร็จ: ${err.message}`)
+    } finally {
+      setPdfProgress(null)
     }
-    exportElementToPdf(printRef.current, `${exportBase}.pdf`)
   }
 
   return (
@@ -540,7 +531,15 @@ function ItemLedgerReport() {
             : 'รหัสสินค้า — กรอกรหัส หรือ * เพื่อดูทั้งหมด'}
           </span>
         </button>
-        {selected && <ExportButtons onPdf={handleExportPdf} onExcel={handleExportExcel} count={selCount} busy={!!pdfJob} />}
+        {selected && (
+          <ExportButtons
+            onPdf={handleExportPdf}
+            onExcel={handleExportExcel}
+            count={selCount}
+            busy={!!pdfProgress}
+            busyText={pdfProgress?.total ? `กำลังสร้าง PDF ${pdfProgress.done}/${pdfProgress.total} หน้า` : null}
+          />
+        )}
       </div>
 
       <div className="mb-5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
@@ -629,16 +628,6 @@ function ItemLedgerReport() {
           onLast={ledgerPage.goLast}
         />
       )}
-
-      <OffscreenPdf job={pdfJob} width={1440} onDone={() => setPdfJob(null)}>
-        {chunkLedgers(selectedLedgers).map((group, i) => (
-          <div key={i} data-pdf-chunk className="flex flex-col gap-6">
-            {group.map(({ product, ledger }) => (
-              <ItemLedgerTable key={product.id} product={product} ledger={ledger} />
-            ))}
-          </div>
-        ))}
-      </OffscreenPdf>
 
       <ProductPickerModal open={pickerOpen} onClose={() => setPickerOpen(false)} onPick={setSelected} />
     </div>
