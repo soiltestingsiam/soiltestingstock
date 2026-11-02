@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
-import { FileSpreadsheet, FileDown, PackageSearch, CalendarRange, ClipboardList, ArrowLeft, ArrowRight, Search } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { FileSpreadsheet, FileDown, PackageSearch, CalendarRange, ClipboardList, ArrowLeft, ArrowRight, Search, Loader2, XCircle } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
 import ProductPickerModal from '../components/ProductPickerModal'
 import DateTextInput from '../components/DateTextInput'
@@ -8,7 +8,7 @@ import { useStore } from '../store/useStore'
 import { buildItemLedger, buildAllStockSummary, groupByProduct, movementsForProduct, filterForProduct } from '../utils/stockCalc'
 import { ddmmyyyyToSortable, todayDDMMYYYY, toThaiDate } from '../utils/date'
 import { formatMoney, formatNumber, thaiCompare } from '../utils/format'
-import { exportAoaToExcel, exportElementToPdf } from '../utils/export'
+import { exportAoaToExcel, exportElementToPdf, exportElementsToPdf } from '../utils/export'
 
 const REPORT_OPTIONS = [
   {
@@ -73,21 +73,109 @@ export default function Reports() {
   )
 }
 
-function ExportButtons({ onPdf, onExcel }) {
+function ExportButtons({ onPdf, onExcel, count = 0, busy = false }) {
+  const suffix = count > 0 ? ` (เลือก ${formatNumber(count)})` : ''
   return (
     <div className="flex flex-wrap gap-2">
       <button
         onClick={onPdf}
-        className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-300 hover:bg-red-500/20"
+        disabled={busy}
+        className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-300 hover:bg-red-500/20 disabled:cursor-wait disabled:opacity-60"
       >
-        <FileDown size={14} /> EXPORT - PDF
+        {busy ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} EXPORT - PDF{suffix}
       </button>
       <button
         onClick={onExcel}
         className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20"
       >
-        <FileSpreadsheet size={14} /> EXPORT - EXCEL
+        <FileSpreadsheet size={14} /> EXPORT - EXCEL{suffix}
       </button>
+    </div>
+  )
+}
+
+// ---------- multi-select (ติ๊กเลือกหลายรหัส แล้ว export เฉพาะที่เลือก) ----------
+
+// A Set of product ids that survives paging. `resetKey` empties it (e.g. a new report).
+function useSelection(resetKey) {
+  const [ids, setIds] = useState(() => new Set())
+  useEffect(() => {
+    setIds(new Set())
+  }, [resetKey])
+  return {
+    ids,
+    toggle: (id) =>
+      setIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) next.delete(id)
+        else next.add(id)
+        return next
+      }),
+    setAll: (allIds, on) => setIds(on ? new Set(allIds) : new Set()),
+    clear: () => setIds(new Set()),
+  }
+}
+
+function Checkbox({ checked, indeterminate = false, onChange, label }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate && !checked
+  }, [indeterminate, checked])
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+      aria-label={label}
+      title={label}
+      className="h-4 w-4 cursor-pointer align-middle accent-blue-600"
+    />
+  )
+}
+
+// "เลือกแล้ว N รายการ · ล้างที่เลือก" strip shown while anything is ticked.
+function SelectionInfo({ count, onClear }) {
+  if (count === 0) return null
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs">
+      <span className="font-semibold text-blue-300">เลือกแล้ว {formatNumber(count)} รายการ</span>
+      <button onClick={onClear} className="flex items-center gap-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+        <XCircle size={13} /> ล้างที่เลือก
+      </button>
+    </div>
+  )
+}
+
+function chunk(list, size) {
+  const out = []
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size))
+  return out
+}
+
+// Renders a PDF job's content in a container parked off-screen, then hands every
+// [data-pdf-chunk] inside it to exportElementsToPdf (so the PDF holds ALL selected rows,
+// not just the page currently on screen). `job` = { filename } | null.
+function OffscreenPdf({ job, width, onDone, children }) {
+  const ref = useRef(null)
+  const ran = useRef(null)
+  useEffect(() => {
+    if (!job || ran.current === job) return
+    ran.current = job
+    ;(async () => {
+      try {
+        // let fonts/layout settle before capturing
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+        await exportElementsToPdf([...ref.current.querySelectorAll('[data-pdf-chunk]')], job.filename)
+      } finally {
+        onDone()
+      }
+    })()
+  }, [job, onDone])
+  if (!job) return null
+  return (
+    <div ref={ref} aria-hidden="true" style={{ position: 'absolute', left: '-99999px', top: 0, width }}>
+      {children}
     </div>
   )
 }
@@ -135,19 +223,46 @@ function DateRangeBar({ from, to, onApply, optional = false }) {
   )
 }
 
+// ledger blocks per PDF capture: grouped by row count so one capture stays well under
+// the browser's maximum canvas height
+const LEDGER_ROWS_PER_PDF_CHUNK = 120
+
+function chunkLedgers(blocks) {
+  const out = []
+  let cur = []
+  let rows = 0
+  blocks.forEach((b) => {
+    const n = b.ledger.rows.length + 8 // + title/header/summary rows
+    if (cur.length && rows + n > LEDGER_ROWS_PER_PDF_CHUNK) {
+      out.push(cur)
+      cur = []
+      rows = 0
+    }
+    cur.push(b)
+    rows += n
+  })
+  if (cur.length) out.push(cur)
+  return out
+}
+
 function ItemLedgerReport() {
   const products = useStore((s) => s.products)
   const stockIns = useStore((s) => s.stockIns)
   const stockOuts = useStore((s) => s.stockOuts)
   // the spec opens the รหัสสินค้า popup straight away
   const [pickerOpen, setPickerOpen] = useState(true)
-  const [selected, setSelected] = useState(null) // null | 'ALL' | product
+  // null | 'ALL' | product | { multi: true, ids } (เลือกหลายรหัส from the picker)
+  const [selected, setSelected] = useState(null)
   // "*" + Enter promises "every product record" (see the help text below), so ALL defaults
   // to including idle products too; the checkbox lets you narrow to movement-only after.
   const [includeIdle, setIncludeIdle] = useState(true)
   // like the spec, the report lists every movement by default; a start date adds ยอดยกมา
   const [range, setRange] = useState({ from: '', to: '' })
   const printRef = useRef(null)
+  const [pdfJob, setPdfJob] = useState(null)
+
+  const isMulti = !!selected?.multi
+  const isList = selected === 'ALL' || isMulti // a list of product blocks (vs one product)
 
   const bounds = useMemo(
     () => ({
@@ -160,25 +275,42 @@ function ItemLedgerReport() {
   const sortedProducts = useMemo(() => [...products].sort((a, b) => thaiCompare(a.code, b.code)), [products])
 
   const singleLedger = useMemo(() => {
-    if (!selected || selected === 'ALL') return null
+    if (!selected || isList) return null
     return buildItemLedger(selected, filterForProduct(stockIns, selected), filterForProduct(stockOuts, selected), bounds)
-  }, [selected, stockIns, stockOuts, bounds])
+  }, [selected, isList, stockIns, stockOuts, bounds])
 
   // With ~10k products, "ALL" defaults to products that actually have movements.
+  // เลือกหลายรหัส shows exactly the picked products (idle or not).
   const allLedgers = useMemo(() => {
-    if (selected !== 'ALL') return null
+    if (!isList) return null
+    const pickedIds = isMulti ? new Set(selected.ids) : null
     const insByProduct = groupByProduct(stockIns)
     const outsByProduct = groupByProduct(stockOuts)
-    return sortedProducts
+    return (pickedIds ? sortedProducts.filter((p) => pickedIds.has(p.id)) : sortedProducts)
       .map((p) => ({ product: p, ins: movementsForProduct(insByProduct, p), outs: movementsForProduct(outsByProduct, p) }))
-      .filter(({ ins, outs }) => includeIdle || ins.length > 0 || outs.length > 0)
+      .filter(({ ins, outs }) => pickedIds || includeIdle || ins.length > 0 || outs.length > 0)
       .map(({ product, ins, outs }) => ({ product, ledger: buildItemLedger(product, ins, outs, bounds) }))
-  }, [selected, sortedProducts, stockIns, stockOuts, includeIdle, bounds])
-  const ledgerPage = usePagination(allLedgers ?? [], 100, `${selected === 'ALL'}-${includeIdle}`)
+  }, [isList, isMulti, selected, sortedProducts, stockIns, stockOuts, includeIdle, bounds])
+  const ledgerPage = usePagination(allLedgers ?? [], 100, `${isList}-${includeIdle}-${isMulti ? selected.ids.join(',') : ''}`)
+
+  // ticked product blocks (list modes only); reset whenever a different report is opened
+  const selection = useSelection(selected)
+  const selectedLedgers = useMemo(
+    () => (allLedgers ?? []).filter(({ product }) => selection.ids.has(product.id)),
+    [allLedgers, selection.ids],
+  )
+  const selCount = selectedLedgers.length
+  const allChecked = !!allLedgers?.length && selCount === allLedgers.length
+  const exportBase = selected === 'ALL' ? 'item-ledger-all' : isMulti ? 'item-ledger-multi' : `item-ledger-${selected?.code}`
+
+  function exportBlocks() {
+    if (!isList) return [{ product: selected, ledger: singleLedger }]
+    return selCount > 0 ? selectedLedgers : allLedgers
+  }
 
   function handleExportExcel() {
     if (!selected) return
-    const blocks = selected === 'ALL' ? allLedgers : [{ product: selected, ledger: singleLedger }]
+    const blocks = exportBlocks()
     const aoa = [[`รายงานสินค้าและวัตถุดิบ${rangeLabel(range)}`]]
     blocks.forEach(({ product, ledger }) => {
       aoa.push([])
@@ -231,14 +363,16 @@ function ItemLedgerReport() {
         '', '',
       ])
     })
-    const filename = selected === 'ALL' ? 'item-ledger-all.xlsx' : `item-ledger-${selected.code}.xlsx`
-    exportAoaToExcel(aoa, filename, 'ItemLedger')
+    exportAoaToExcel(aoa, `${exportBase}${selCount > 0 ? '-selected' : ''}.xlsx`, 'ItemLedger')
   }
 
   function handleExportPdf() {
-    if (!selected) return
-    const filename = selected === 'ALL' ? 'item-ledger-all.pdf' : `item-ledger-${selected.code}.pdf`
-    exportElementToPdf(printRef.current, filename)
+    if (!selected || pdfJob) return
+    if (isList && selCount > 0) {
+      setPdfJob({ filename: `${exportBase}-selected.pdf` })
+      return
+    }
+    exportElementToPdf(printRef.current, `${exportBase}.pdf`)
   }
 
   return (
@@ -252,12 +386,14 @@ function ItemLedgerReport() {
           <span className="truncate">
           {selected === 'ALL'
             ? 'สินค้าทั้งหมด (*)'
+            : isMulti
+            ? `เลือก ${formatNumber(selected.ids.length)} รหัส`
             : selected
             ? `${selected.code} — ${selected.name}`
             : 'รหัสสินค้า — กรอกรหัส หรือ * เพื่อดูทั้งหมด'}
           </span>
         </button>
-        {selected && <ExportButtons onPdf={handleExportPdf} onExcel={handleExportExcel} />}
+        {selected && <ExportButtons onPdf={handleExportPdf} onExcel={handleExportExcel} count={selCount} busy={!!pdfJob} />}
       </div>
 
       <div className="mb-5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
@@ -275,35 +411,60 @@ function ItemLedgerReport() {
         </div>
       )}
 
-      {selected === 'ALL' && (
+      {isList && (
         <div className="mb-4 flex flex-col gap-2 text-xs text-[var(--text-muted)] sm:flex-row sm:items-center sm:justify-between">
-          <span>
-            {includeIdle
-              ? `แสดงสินค้าทุกรายการ (${formatNumber(allLedgers.length)} รายการ)`
-              : `แสดงเฉพาะสินค้าที่มีรายการรับ-จ่าย (${formatNumber(allLedgers.length)} จาก ${formatNumber(products.length)} รายการ)`}
-          </span>
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={includeIdle} onChange={(e) => setIncludeIdle(e.target.checked)} />
-            รวมสินค้าที่ไม่มีการเคลื่อนไหว
-          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            {allLedgers.length > 0 && (
+              <label className="flex items-center gap-2 font-medium text-[var(--text-secondary)]">
+                <Checkbox
+                  checked={allChecked}
+                  indeterminate={selCount > 0}
+                  onChange={(e) => selection.setAll(allLedgers.map((b) => b.product.id), e.target.checked)}
+                  label="เลือกทั้งหมด"
+                />
+                เลือกทั้งหมด
+              </label>
+            )}
+            <span>
+              {isMulti
+                ? `แสดงเฉพาะรหัสที่เลือก (${formatNumber(allLedgers.length)} รายการ)`
+                : includeIdle
+                ? `แสดงสินค้าทุกรายการ (${formatNumber(allLedgers.length)} รายการ)`
+                : `แสดงเฉพาะสินค้าที่มีรายการรับ-จ่าย (${formatNumber(allLedgers.length)} จาก ${formatNumber(products.length)} รายการ)`}
+            </span>
+            <SelectionInfo count={selCount} onClear={selection.clear} />
+          </div>
+          {!isMulti && (
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={includeIdle} onChange={(e) => setIncludeIdle(e.target.checked)} />
+              รวมสินค้าที่ไม่มีการเคลื่อนไหว
+            </label>
+          )}
         </div>
       )}
 
       {selected && (
         <div ref={printRef} className="flex flex-col gap-6">
-          {selected === 'ALL'
+          {isList
             ? ledgerPage.pageItems.map(({ product, ledger }) => (
-                <ItemLedgerTable key={product.id} product={product} ledger={ledger} />
+                <ItemLedgerTable
+                  key={product.id}
+                  product={product}
+                  ledger={ledger}
+                  selectable
+                  checked={selection.ids.has(product.id)}
+                  onToggle={() => selection.toggle(product.id)}
+                />
               ))
             : singleLedger && <ItemLedgerTable product={selected} ledger={singleLedger} />}
-          {selected === 'ALL' && allLedgers.length === 0 && (
+          {isList && allLedgers.length === 0 && (
             <div className="rounded-xl border border-dashed border-[var(--border-color)] bg-[var(--bg-card)] py-16 text-center text-sm text-[var(--text-faint)]">
               ยังไม่มีสินค้าที่มีรายการรับ-จ่าย
             </div>
           )}
         </div>
       )}
-      {selected === 'ALL' && (
+      {isList && (
         <Pagination
           page={ledgerPage.page}
           totalPages={ledgerPage.totalPages}
@@ -314,6 +475,16 @@ function ItemLedgerReport() {
           onLast={ledgerPage.goLast}
         />
       )}
+
+      <OffscreenPdf job={pdfJob} width={1440} onDone={() => setPdfJob(null)}>
+        {chunkLedgers(selectedLedgers).map((group, i) => (
+          <div key={i} data-pdf-chunk className="flex flex-col gap-6">
+            {group.map(({ product, ledger }) => (
+              <ItemLedgerTable key={product.id} product={product} ledger={ledger} />
+            ))}
+          </div>
+        ))}
+      </OffscreenPdf>
 
       <ProductPickerModal open={pickerOpen} onClose={() => setPickerOpen(false)} onPick={setSelected} />
     </div>
@@ -332,11 +503,16 @@ function round2(n) {
   return Math.round((Number(n) || 0) * 100) / 100
 }
 
-function ItemLedgerTable({ product, ledger }) {
+function ItemLedgerTable({ product, ledger, selectable = false, checked = false, onToggle }) {
   return (
-    <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
+    <div className={`rounded-xl border bg-[var(--bg-card)] p-5 ${checked ? 'border-blue-500/60' : 'border-[var(--border-color)]'}`}>
       <div className="mb-1 text-center text-lg font-bold text-[var(--text-primary)]">รายงานสินค้าและวัตถุดิบ</div>
-      <div className="mb-4 flex flex-col gap-1 text-sm sm:flex-row sm:gap-6">
+      <div className="mb-4 flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:gap-6">
+        {selectable && (
+          <span data-pdf-hide className="flex items-center">
+            <Checkbox checked={checked} onChange={onToggle} label={`เลือก ${product.code}`} />
+          </span>
+        )}
         <span className="whitespace-nowrap text-[var(--text-secondary)]">
           รหัสสินค้า : <span className="font-semibold text-red-400">{product.code}</span>
         </span>
@@ -457,11 +633,28 @@ function ItemLedgerTable({ product, ledger }) {
   )
 }
 
+// rows per PDF capture for the summary report (same as one on-screen page)
+const SUMMARY_ROWS_PER_PDF_CHUNK = 100
+
+function sumSummaryTotals(rows) {
+  return rows.reduce(
+    (acc, r) => {
+      acc.openingValue += r.opening.value
+      acc.inValue += r.in.value
+      acc.outValue += r.out.value
+      acc.closingValue += r.closing.value
+      return acc
+    },
+    { openingValue: 0, inValue: 0, outValue: 0, closingValue: 0 },
+  )
+}
+
 function AllStockSummaryReport() {
   const products = useStore((s) => s.products)
   const stockIns = useStore((s) => s.stockIns)
   const stockOuts = useStore((s) => s.stockOuts)
   const printRef = useRef(null)
+  const [pdfJob, setPdfJob] = useState(null)
 
   const [range, setRange] = useState(() => ({ from: startOfYear(), to: todayDDMMYYYY() }))
   const fromSortable = ddmmyyyyToSortable(range.from)
@@ -486,94 +679,166 @@ function AllStockSummaryReport() {
 
   const summaryPage = usePagination(rows, 100, `${fromSortable}-${toSortable}`)
 
-  const totals = useMemo(
-    () =>
-      rows.reduce(
-        (acc, r) => {
-          acc.openingValue += r.opening.value
-          acc.inValue += r.in.value
-          acc.outValue += r.out.value
-          acc.closingValue += r.closing.value
-          return acc
-        },
-        { openingValue: 0, inValue: 0, outValue: 0, closingValue: 0 },
-      ),
-    [rows],
-  )
+  const totals = useMemo(() => sumSummaryTotals(rows), [rows])
+
+  // ticked rows (product ids) — kept across pages and date-range changes
+  const selection = useSelection('summary')
+  const selectedRows = useMemo(() => rows.filter((r) => selection.ids.has(r.id)), [rows, selection.ids])
+  const selectedTotals = useMemo(() => sumSummaryTotals(selectedRows), [selectedRows])
+  const selCount = selectedRows.length
 
   const fromThai = toThaiDate(range.from)
   const toThai = toThaiDate(range.to)
 
   function handleExportExcel() {
+    const exportRows = selCount > 0 ? selectedRows : rows
+    const t = selCount > 0 ? selectedTotals : totals
     const aoa = [
       ['สรุปยอดสินค้าคงเหลือ รวมทุกคลัง'],
       [`สิ้นสุดวันที่ ${fromThai} - ${toThai}`],
       [],
       ['รหัส', 'ชื่อสินค้า', `ยอดยกมา - ${fromThai} จำนวน`, `ยอดยกมา - ${fromThai} เป็นเงิน`, 'ซื้อ-จำนวน', 'ซื้อ-เป็นเงิน', 'ออก-จำนวน', 'ออก-เป็นเงิน', 'คงเหลือ-จำนวน', 'คงเหลือ-เป็นเงิน'],
-      ...rows.map((r) => [r.code, r.name, r.opening.qty, r.opening.value, r.in.qty, r.in.value, r.out.qty, r.out.value, r.closing.qty, r.closing.value]),
-      ['', 'รวมเงิน', '', totals.openingValue, '', totals.inValue, '', totals.outValue, '', totals.closingValue],
+      ...exportRows.map((r) => [r.code, r.name, r.opening.qty, r.opening.value, r.in.qty, r.in.value, r.out.qty, r.out.value, r.closing.qty, r.closing.value]),
+      ['', 'รวมเงิน', '', round2(t.openingValue), '', round2(t.inValue), '', round2(t.outValue), '', round2(t.closingValue)],
     ]
-    exportAoaToExcel(aoa, `all-stock-summary.xlsx`, 'Summary')
+    exportAoaToExcel(aoa, selCount > 0 ? 'all-stock-summary-selected.xlsx' : 'all-stock-summary.xlsx', 'Summary')
   }
 
   function handleExportPdf() {
+    if (pdfJob) return
+    if (selCount > 0) {
+      setPdfJob({ filename: 'all-stock-summary-selected.pdf' })
+      return
+    }
     exportElementToPdf(printRef.current, `all-stock-summary.pdf`)
   }
+
+  const allChecked = rows.length > 0 && selCount === rows.length
+  const pdfChunks = chunk(selectedRows, SUMMARY_ROWS_PER_PDF_CHUNK)
 
   return (
     <div className="mx-auto max-w-[1123px]">
       <div className="mb-5 flex flex-col gap-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 lg:flex-row lg:items-start lg:justify-between">
         <DateRangeBar from={range.from} to={range.to} onApply={(from, to) => setRange({ from, to })} />
-        <ExportButtons onPdf={handleExportPdf} onExcel={handleExportExcel} />
+        <ExportButtons onPdf={handleExportPdf} onExcel={handleExportExcel} count={selCount} busy={!!pdfJob} />
       </div>
+      {selCount > 0 && (
+        <div className="mb-4 flex">
+          <SelectionInfo count={selCount} onClear={selection.clear} />
+        </div>
+      )}
 
       {/* Sized to A4 landscape (297 x 210mm ≈ 1123 x 794px @96dpi) so the on-screen report
           previews the way it will print/export. */}
-      <div ref={printRef} className="report-a4-page min-h-[794px] rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
-        <div className="text-center text-lg font-bold text-[var(--text-primary)]">สรุปยอดสินค้าคงเหลือ รวมทุกคลัง</div>
-        <div className="mb-4 text-center text-sm text-[var(--text-secondary)]">
-          สิ้นสุดวันที่ {fromThai} - {toThai}
-        </div>
-        <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
-          <table className="w-full min-w-[980px] text-xs [&_th]:whitespace-nowrap">
-            <thead>
-              <tr className="bg-[var(--bg-surface-soft)] text-[var(--text-secondary)]">
-                <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-left align-bottom">รหัส</th>
-                <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-left align-bottom">ชื่อสินค้า</th>
-                <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-red-400">ยอดยกมา - {fromThai}</th>
-                <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-emerald-300">ซื้อ</th>
-                <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-sky-300">ออก</th>
-                <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-red-400">คงเหลือ</th>
-              </tr>
-              <tr className="bg-[var(--bg-surface-soft)] text-right text-[var(--text-muted)]">
-                {['จำนวน', 'เป็นเงิน', 'จำนวน', 'เป็นเงิน', 'จำนวน', 'เป็นเงิน', 'จำนวน', 'เป็นเงิน'].map((h, i) => (
-                  <th key={i} className="px-2 py-1.5 font-medium">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {summaryPage.pageItems.map((r) => (
-                <tr key={r.id} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
-                  <td className="whitespace-nowrap px-2 py-2 font-mono text-[var(--text-accent)]">{r.code}</td>
-                  <td className="max-w-[260px] whitespace-normal break-words px-2 py-2">{r.name}</td>
-                  <td className={`${numCell} text-red-400`}>{formatNumber(r.opening.qty)}</td>
-                  <td className={`${numCell} text-red-400`}>{formatMoney(r.opening.value)}</td>
-                  <td className={`${numCell} text-emerald-300`}>{formatNumber(r.in.qty)}</td>
-                  <td className={`${numCell} text-emerald-300`}>{formatMoney(r.in.value)}</td>
-                  <td className={`${numCell} text-sky-300`}>{formatNumber(r.out.qty)}</td>
-                  <td className={`${numCell} text-sky-300`}>{formatMoney(r.out.value)}</td>
-                  <td className={`${numCell} font-medium text-red-400`}>{formatNumber(r.closing.qty)}</td>
-                  <td className={`${numCell} font-medium text-red-400`}>{formatMoney(r.closing.value)}</td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-[var(--text-faint)]">ไม่มีข้อมูลสินค้า</td>
-                </tr>
+      <div ref={printRef}>
+        <SummarySheet
+          rows={summaryPage.pageItems}
+          totals={totals}
+          fromThai={fromThai}
+          toThai={toThai}
+          empty={rows.length === 0}
+          select={{
+            ids: selection.ids,
+            toggle: selection.toggle,
+            allChecked,
+            someChecked: selCount > 0,
+            toggleAll: (on) => selection.setAll(rows.map((r) => r.id), on),
+          }}
+        />
+      </div>
+      <Pagination
+        page={summaryPage.page}
+        totalPages={summaryPage.totalPages}
+        totalItems={rows.length}
+        onFirst={summaryPage.goFirst}
+        onPrev={summaryPage.goPrev}
+        onNext={summaryPage.goNext}
+        onLast={summaryPage.goLast}
+      />
+
+      <OffscreenPdf job={pdfJob} width={1123} onDone={() => setPdfJob(null)}>
+        {pdfChunks.map((part, i) => (
+          <div key={i} data-pdf-chunk>
+            <SummarySheet
+              rows={part}
+              totals={selectedTotals}
+              showTotals={i === pdfChunks.length - 1}
+              fromThai={fromThai}
+              toThai={toThai}
+            />
+          </div>
+        ))}
+      </OffscreenPdf>
+    </div>
+  )
+}
+
+// One A4-landscape sheet of the All-Stock Summary. `select` (on-screen only) adds the
+// checkbox column, which is marked data-pdf-hide so it never reaches the PDF.
+function SummarySheet({ rows, totals, fromThai, toThai, empty = false, showTotals = true, select = null }) {
+  return (
+    <div className="report-a4-page min-h-[794px] rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
+      <div className="text-center text-lg font-bold text-[var(--text-primary)]">สรุปยอดสินค้าคงเหลือ รวมทุกคลัง</div>
+      <div className="mb-4 text-center text-sm text-[var(--text-secondary)]">
+        สิ้นสุดวันที่ {fromThai} - {toThai}
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
+        <table className="w-full min-w-[980px] text-xs [&_th]:whitespace-nowrap">
+          <thead>
+            <tr className="bg-[var(--bg-surface-soft)] text-[var(--text-secondary)]">
+              {select && (
+                <th rowSpan={2} data-pdf-hide className="w-8 border-b border-[var(--border-color)] px-2 py-2 text-center align-bottom">
+                  <Checkbox
+                    checked={select.allChecked}
+                    indeterminate={select.someChecked}
+                    onChange={(e) => select.toggleAll(e.target.checked)}
+                    label="เลือกทั้งหมด (ทุกรายการในรายงาน)"
+                  />
+                </th>
               )}
-            </tbody>
+              <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-left align-bottom">รหัส</th>
+              <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-left align-bottom">ชื่อสินค้า</th>
+              <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-red-400">ยอดยกมา - {fromThai}</th>
+              <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-emerald-300">ซื้อ</th>
+              <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-sky-300">ออก</th>
+              <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-red-400">คงเหลือ</th>
+            </tr>
+            <tr className="bg-[var(--bg-surface-soft)] text-right text-[var(--text-muted)]">
+              {['จำนวน', 'เป็นเงิน', 'จำนวน', 'เป็นเงิน', 'จำนวน', 'เป็นเงิน', 'จำนวน', 'เป็นเงิน'].map((h, i) => (
+                <th key={i} className="px-2 py-1.5 font-medium">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
+                {select && (
+                  <td data-pdf-hide className="px-2 py-2 text-center">
+                    <Checkbox checked={select.ids.has(r.id)} onChange={() => select.toggle(r.id)} label={`เลือก ${r.code}`} />
+                  </td>
+                )}
+                <td className="whitespace-nowrap px-2 py-2 font-mono text-[var(--text-accent)]">{r.code}</td>
+                <td className="max-w-[260px] whitespace-normal break-words px-2 py-2">{r.name}</td>
+                <td className={`${numCell} text-red-400`}>{formatNumber(r.opening.qty)}</td>
+                <td className={`${numCell} text-red-400`}>{formatMoney(r.opening.value)}</td>
+                <td className={`${numCell} text-emerald-300`}>{formatNumber(r.in.qty)}</td>
+                <td className={`${numCell} text-emerald-300`}>{formatMoney(r.in.value)}</td>
+                <td className={`${numCell} text-sky-300`}>{formatNumber(r.out.qty)}</td>
+                <td className={`${numCell} text-sky-300`}>{formatMoney(r.out.value)}</td>
+                <td className={`${numCell} font-medium text-red-400`}>{formatNumber(r.closing.qty)}</td>
+                <td className={`${numCell} font-medium text-red-400`}>{formatMoney(r.closing.value)}</td>
+              </tr>
+            ))}
+            {empty && (
+              <tr>
+                <td colSpan={select ? 11 : 10} className="px-4 py-8 text-center text-[var(--text-faint)]">ไม่มีข้อมูลสินค้า</td>
+              </tr>
+            )}
+          </tbody>
+          {showTotals && (
             <tfoot>
               <tr className="border-t-2 border-[var(--border-color)] bg-amber-500/10 font-bold text-red-400">
+                {select && <td data-pdf-hide></td>}
                 <td className="px-2 py-2.5 text-center" colSpan={2}>รวมเงิน</td>
                 <td></td>
                 <td className={numCell}>{formatMoney(totals.openingValue)}</td>
@@ -585,18 +850,9 @@ function AllStockSummaryReport() {
                 <td className={numCell}>{formatMoney(totals.closingValue)}</td>
               </tr>
             </tfoot>
-          </table>
-        </div>
+          )}
+        </table>
       </div>
-      <Pagination
-        page={summaryPage.page}
-        totalPages={summaryPage.totalPages}
-        totalItems={rows.length}
-        onFirst={summaryPage.goFirst}
-        onPrev={summaryPage.goPrev}
-        onNext={summaryPage.goNext}
-        onLast={summaryPage.goLast}
-      />
     </div>
   )
 }
