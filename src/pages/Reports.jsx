@@ -222,6 +222,14 @@ function ItemLedgerReport() {
         ledger.closing.qty, '', ledger.closing.value,
         '', '',
       ])
+      aoa.push([
+        'รวมรายการ', '',
+        '', '', '',
+        round2(ledger.opening.qty + ledger.totalIn.qty), '', round2(ledger.opening.value + ledger.totalIn.value),
+        ledger.totalOut.qty, '', ledger.totalOut.value,
+        ledger.closing.qty, '', ledger.closing.value,
+        '', '',
+      ])
     })
     const filename = selected === 'ALL' ? 'item-ledger-all.xlsx' : `item-ledger-${selected.code}.xlsx`
     exportAoaToExcel(aoa, filename, 'ItemLedger')
@@ -319,6 +327,11 @@ function rangeLabel({ from, to }) {
 
 const numCell = 'px-2 py-2 text-right'
 
+// avoids float noise (e.g. 141700.00000000003) when adding two money totals for Excel
+function round2(n) {
+  return Math.round((Number(n) || 0) * 100) / 100
+}
+
 function ItemLedgerTable({ product, ledger }) {
   return (
     <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
@@ -412,6 +425,23 @@ function ItemLedgerTable({ product, ledger }) {
               <td className={numCell}>{formatNumber(ledger.totalIn.qty)}</td>
               <td className={numCell}>-</td>
               <td className={numCell}>{formatMoney(ledger.totalIn.value)}</td>
+              <td className={numCell}>{formatNumber(ledger.totalOut.qty)}</td>
+              <td className={numCell}>-</td>
+              <td className={numCell}>{formatMoney(ledger.totalOut.value)}</td>
+              <td className={numCell}>{formatNumber(ledger.closing.qty)}</td>
+              <td className={numCell}>-</td>
+              <td className={numCell}>{formatMoney(ledger.closing.value)}</td>
+              <td></td>
+            </tr>
+            {/* รวมรายการ (like the CD accounting program): ยอดยกมา folded into รายการรับ */}
+            <tr className="border-t-2 border-double border-[var(--border-color-strong)] bg-sky-500/10 font-bold text-red-400">
+              <td className="px-2 py-2.5" colSpan={2}>รวมรายการ</td>
+              <td className={numCell}></td>
+              <td className={numCell}></td>
+              <td className={numCell}></td>
+              <td className={numCell}>{formatNumber(ledger.opening.qty + ledger.totalIn.qty)}</td>
+              <td className={numCell}>-</td>
+              <td className={numCell}>{formatMoney(ledger.opening.value + ledger.totalIn.value)}</td>
               <td className={numCell}>{formatNumber(ledger.totalOut.qty)}</td>
               <td className={numCell}>-</td>
               <td className={numCell}>{formatMoney(ledger.totalOut.value)}</td>
