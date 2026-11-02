@@ -3,16 +3,17 @@ import { Settings, LogOut, UserCircle2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import SealLogo from './SealLogo'
 import SettingsModal from './SettingsModal'
-import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
+import { useAuthStore, useCurrentUser, usePendingCount } from '../store/useAuthStore'
 
 export default function TopBar() {
   const navigate = useNavigate()
   const currentUser = useCurrentUser()
   const logout = useAuthStore((s) => s.logout)
+  const pendingCount = usePendingCount()
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  function handleSignOut() {
-    logout()
+  async function handleSignOut() {
+    await logout()
     navigate('/login', { replace: true })
   }
 
@@ -51,10 +52,15 @@ export default function TopBar() {
           </div>
           <button
             onClick={() => setSettingsOpen(true)}
-            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)] sm:h-10 sm:w-10"
+            className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)] sm:h-10 sm:w-10"
             aria-label="ตั้งค่า"
           >
             <Settings size={18} />
+            {pendingCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white" title={`รออนุมัติ ${pendingCount} คน`}>
+                {pendingCount > 99 ? '99+' : pendingCount}
+              </span>
+            )}
           </button>
           <button
             onClick={handleSignOut}

@@ -6,8 +6,7 @@ import { useAuthStore } from './useAuthStore'
 
 function currentUsername() {
   try {
-    const { users, currentUserId } = useAuthStore.getState()
-    return users.find((u) => u.id === currentUserId)?.username ?? null
+    return useAuthStore.getState().profile?.username ?? null
   } catch {
     return null
   }
@@ -88,6 +87,9 @@ function sortProducts(products) {
   return [...products].sort((a, b) => thaiCompare(a.code, b.code))
 }
 
+// bumped by reset(): an init() still in flight from a previous session drops its result
+let loadGeneration = 0
+
 const NOT_CONFIGURED_MSG = 'ยังไม่ได้ตั้งค่า Supabase — ตรวจสอบไฟล์ .env (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)'
 
 export const useStore = create((set, get) => ({
@@ -98,14 +100,17 @@ export const useStore = create((set, get) => ({
   loading: true,
   error: null,
   _subscribed: false,
+  _channel: null,
 
-  // Loads everything from Supabase once at app start, then keeps a realtime
-  // subscription open so a change made on another device/tab shows up here too.
+  // Loads everything from Supabase once the user is signed in AND approved (RLS returns
+  // nothing before that), then keeps a realtime subscription open so a change made on
+  // another device/tab shows up here too. Called from App.jsx; reset() on sign-out.
   init: async () => {
     if (!isSupabaseConfigured) {
       set({ loading: false, error: NOT_CONFIGURED_MSG })
       return
     }
+    const gen = loadGeneration
     try {
       const [{ data: products, error: e1 }, { data: movements, error: e2 }, { data: batches, error: e3 }] = await Promise.all([
         supabase.from('products').select('*'),
@@ -115,6 +120,7 @@ export const useStore = create((set, get) => ({
       if (e1) throw e1
       if (e2) throw e2
       if (e3) throw e3
+      if (gen !== loadGeneration) return
       set({
         products: sortProducts((products ?? []).map(rowToProduct)),
         stockIns: (movements ?? []).filter((r) => r.direction === 'in').map(rowToMovement),
@@ -125,19 +131,29 @@ export const useStore = create((set, get) => ({
       })
       get().subscribeRealtime()
     } catch (err) {
+      if (gen !== loadGeneration) return
       set({ loading: false, error: err.message })
     }
   },
 
+  // Drops the loaded data and the realtime channel (sign-out / account no longer approved),
+  // so the next init() starts clean for whoever signs in next.
+  reset: () => {
+    loadGeneration += 1
+    const channel = get()._channel
+    if (channel && isSupabaseConfigured) supabase.removeChannel(channel)
+    set({ products: [], stockIns: [], stockOuts: [], importBatches: [], loading: true, error: null, _subscribed: false, _channel: null })
+  },
+
   subscribeRealtime: () => {
     if (!isSupabaseConfigured || get()._subscribed) return
-    set({ _subscribed: true })
-    supabase
+    const channel = supabase
       .channel('sts-stock-db-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => get().refetchProducts())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, () => get().refetchMovements())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'import_batches' }, () => get().refetchBatches())
       .subscribe()
+    set({ _subscribed: true, _channel: channel })
   },
 
   refetchProducts: async () => {

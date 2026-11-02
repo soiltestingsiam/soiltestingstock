@@ -64,23 +64,20 @@ create index if not exists stock_movements_product_code_idx on stock_movements(p
 create index if not exists stock_movements_direction_idx on stock_movements(direction);
 
 -- ---------- Row Level Security ----------
--- This app has its own simple login screen (not Supabase Auth), so every request from
--- the browser uses the shared anon/publishable key. Policies below allow that anon role
--- full read/write — the app's login screen is the only gate. Anyone holding the
--- publishable key could otherwise call the API directly, bypassing that login; tighten
--- this (e.g. by switching to real Supabase Auth) if that matters for your use case.
+-- RLS is ON for every table. The access policies (signed-in + admin-approved users only)
+-- live in supabase/migrations/002_auth_approval.sql — run that right after this file.
+-- Until it runs, the browser can't read or write anything (no policy = no access).
+--
+-- (Older versions of this file granted the "anon" role full access, which let anyone
+-- holding the publishable key bypass the login screen. That policy is intentionally no
+-- longer created here; 002 also drops it from existing databases.)
 alter table products enable row level security;
 alter table stock_movements enable row level security;
 alter table import_batches enable row level security;
 
 drop policy if exists "anon full access" on products;
-create policy "anon full access" on products for all to anon using (true) with check (true);
-
 drop policy if exists "anon full access" on stock_movements;
-create policy "anon full access" on stock_movements for all to anon using (true) with check (true);
-
 drop policy if exists "anon full access" on import_batches;
-create policy "anon full access" on import_batches for all to anon using (true) with check (true);
 
 -- ---------- Realtime ----------
 -- So a change made on one device/browser shows up on another without a manual refresh.

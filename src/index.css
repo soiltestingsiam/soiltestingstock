@@ -48,11 +48,11 @@
   --border-color-soft: rgba(15, 23, 42, 0.07);
   --border-color-strong: rgba(15, 23, 42, 0.22);
 
-  --text-primary: #0f172a;
-  --text-secondary: rgba(15, 23, 42, 0.68);
-  --text-muted: rgba(15, 23, 42, 0.5);
-  --text-faint: rgba(15, 23, 42, 0.4);
-  --text-accent: #1d4ed8;
+  --text-primary: #000000;
+  --text-secondary: #000000;
+  --text-muted: #000000;
+  --text-faint: #000000;
+  --text-accent: #000000;
 
   --shadow-color: rgba(15, 23, 42, 0.12);
   --scrollbar-track: #eef1f8;
@@ -102,5 +102,92 @@ table :where(th, td) {
   }
   .report-a4-page {
     min-height: 0;
+  }
+}
+
+/* ---------- Light theme: all text is black ----------
+   Only applies under data-theme='light' — the dark theme is untouched. Hardcoded
+   Tailwind text colors (text-red-400, text-emerald-300, ...) are pastel shades picked
+   for the dark background and wash out on white, so they're forced to black here.
+   Not affected: text-white (white text on solid buttons/badges stays white), and icons —
+   an <svg> carrying the class keeps its color, and an icon nested inside colored text
+   keeps the original shade instead of inheriting the forced black. Keep this list in sync
+   with `grep -rhoE "text-[a-z]+-[0-9]{3}" src` when adding new text colors. */
+:root[data-theme='light'] .text-amber-200:not(svg),
+:root[data-theme='light'] .text-amber-300:not(svg),
+:root[data-theme='light'] .text-amber-500:not(svg),
+:root[data-theme='light'] .text-blue-300:not(svg),
+:root[data-theme='light'] .text-blue-400:not(svg),
+:root[data-theme='light'] .text-emerald-300:not(svg),
+:root[data-theme='light'] .text-emerald-400:not(svg),
+:root[data-theme='light'] .text-orange-400:not(svg),
+:root[data-theme='light'] .text-red-300:not(svg),
+:root[data-theme='light'] .text-red-400:not(svg),
+:root[data-theme='light'] .text-sky-200:not(svg),
+:root[data-theme='light'] .text-sky-300:not(svg),
+:root[data-theme='light'] .text-sky-400:not(svg),
+:root[data-theme='light'] .text-violet-300:not(svg) {
+  color: #000000;
+}
+:root[data-theme='light'] .text-amber-200 svg:not([class*='text-']) {
+  color: #fde68a;
+}
+:root[data-theme='light'] .text-amber-300 svg:not([class*='text-']) {
+  color: #fcd34d;
+}
+:root[data-theme='light'] .text-amber-500 svg:not([class*='text-']) {
+  color: #f59e0b;
+}
+:root[data-theme='light'] .text-blue-300 svg:not([class*='text-']) {
+  color: #93c5fd;
+}
+:root[data-theme='light'] .text-blue-400 svg:not([class*='text-']) {
+  color: #60a5fa;
+}
+:root[data-theme='light'] .text-emerald-300 svg:not([class*='text-']) {
+  color: #6ee7b7;
+}
+:root[data-theme='light'] .text-emerald-400 svg:not([class*='text-']) {
+  color: #34d399;
+}
+:root[data-theme='light'] .text-orange-400 svg:not([class*='text-']) {
+  color: #fb923c;
+}
+:root[data-theme='light'] .text-red-300 svg:not([class*='text-']) {
+  color: #fca5a5;
+}
+:root[data-theme='light'] .text-red-400 svg:not([class*='text-']) {
+  color: #f87171;
+}
+:root[data-theme='light'] .text-sky-200 svg:not([class*='text-']) {
+  color: #bae6fd;
+}
+:root[data-theme='light'] .text-sky-300 svg:not([class*='text-']) {
+  color: #7dd3fc;
+}
+:root[data-theme='light'] .text-sky-400 svg:not([class*='text-']) {
+  color: #38bdf8;
+}
+:root[data-theme='light'] .text-violet-300 svg:not([class*='text-']) {
+  color: #c4b5fd;
+}
+
+/* Reports "jump to product" search: briefly highlights the row/block it jumped to.
+   Yellow reads clearly on both the dark and the light theme. */
+.jump-highlight {
+  outline: 3px solid #facc15;
+  outline-offset: -3px;
+  animation: jump-flash 0.8s ease-in-out 3;
+}
+tr.jump-highlight > td {
+  background-color: rgba(250, 204, 21, 0.3);
+}
+div.jump-highlight {
+  outline-offset: 2px;
+  box-shadow: 0 0 24px rgba(250, 204, 21, 0.45);
+}
+@keyframes jump-flash {
+  50% {
+    outline-color: rgba(250, 204, 21, 0.35);
   }
 }

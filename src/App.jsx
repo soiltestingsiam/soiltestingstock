@@ -11,6 +11,7 @@ import Login from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useThemeStore } from './store/useThemeStore'
 import { useStore } from './store/useStore'
+import { useAuthStore } from './store/useAuthStore'
 
 // Gates the data-driven pages behind the initial Supabase fetch so they don't flash an
 // empty "ไม่พบสินค้า" state before the first load resolves.
@@ -44,9 +45,19 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
 
+  // Restore the Supabase session (if any) once, then load stock data only while an
+  // approved user is signed in — before that RLS returns nothing anyway.
+  const approvedUserId = useAuthStore((s) => (s.profile?.status === 'approved' ? s.profile.id : null))
+
   useEffect(() => {
-    useStore.getState().init()
+    useAuthStore.getState().init()
   }, [])
+
+  useEffect(() => {
+    if (!approvedUserId) return
+    useStore.getState().init()
+    return () => useStore.getState().reset()
+  }, [approvedUserId])
 
   return (
     <Routes>
