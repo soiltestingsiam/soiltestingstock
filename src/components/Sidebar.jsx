@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import SettingsModal from './SettingsModal'
 import SealLogo from './SealLogo'
-import { useAuthStore, useCurrentUser } from '../store/useAuthStore'
+import { useAuthStore, useCurrentUser, usePendingCount } from '../store/useAuthStore'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Home', icon: Home, end: true },
@@ -28,11 +28,12 @@ const NAV_ITEMS = [
 export default function Sidebar({ mobileOpen = false, onClose = () => {} }) {
   const currentUser = useCurrentUser()
   const logout = useAuthStore((s) => s.logout)
+  const pendingCount = usePendingCount()
   const navigate = useNavigate()
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  function handleSignOut() {
-    logout()
+  async function handleSignOut() {
+    await logout()
     navigate('/login', { replace: true })
   }
 
@@ -109,10 +110,15 @@ export default function Sidebar({ mobileOpen = false, onClose = () => {} }) {
             </div>
             <button
               onClick={() => setSettingsOpen(true)}
-              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
+              className="relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
               aria-label="ตั้งค่า"
             >
               <Settings size={15} />
+              {pendingCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white" title={`รออนุมัติ ${pendingCount} คน`}>
+                {pendingCount > 99 ? '99+' : pendingCount}
+              </span>
+            )}
             </button>
             <button
               onClick={handleSignOut}

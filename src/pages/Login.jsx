@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Lock, User, Eye, EyeOff, LogIn, UserPlus } from 'lucide-react'
+import { Navigate, useNavigate } from 'react-router-dom'
+import { Lock, User, Eye, EyeOff, LogIn, UserPlus, Loader2 } from 'lucide-react'
 import SealLogo from '../components/SealLogo'
 import { useAuthStore } from '../store/useAuthStore'
 import { inputClass } from '../components/FormField'
@@ -9,6 +9,7 @@ export default function Login() {
   const navigate = useNavigate()
   const login = useAuthStore((s) => s.login)
   const register = useAuthStore((s) => s.register)
+  const alreadyIn = useAuthStore((s) => !!s.session && s.profile?.status === 'approved')
 
   const [mode, setMode] = useState('login') // 'login' | 'register'
   const [username, setUsername] = useState('')
@@ -16,13 +17,19 @@ export default function Login() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
+  const [busy, setBusy] = useState(false)
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
+    if (busy) return
     setError('')
+    setInfo('')
 
     if (mode === 'login') {
-      const result = login(username, password)
+      setBusy(true)
+      const result = await login(username, password)
+      setBusy(false)
       if (!result.success) {
         setError(result.message)
         return
@@ -37,21 +44,30 @@ export default function Login() {
         setError('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร')
         return
       }
-      const result = register(username, password)
+      setBusy(true)
+      const result = await register(username, password)
+      setBusy(false)
       if (!result.success) {
         setError(result.message)
         return
       }
-      navigate('/', { replace: true })
+      // the account is pending — back to the login tab with the notice, not into the app
+      setMode('login')
+      setPassword('')
+      setConfirmPassword('')
+      setInfo('สมัครสำเร็จ รอผู้ดูแลระบบอนุมัติ')
     }
   }
 
   function switchMode(next) {
     setMode(next)
     setError('')
+    setInfo('')
     setPassword('')
     setConfirmPassword('')
   }
+
+  if (alreadyIn) return <Navigate to="/" replace />
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--bg-page)] px-4">
@@ -151,12 +167,21 @@ export default function Login() {
             {error && (
               <div className="rounded-lg bg-red-500/10 px-3.5 py-2.5 text-sm text-red-400">{error}</div>
             )}
+            {info && (
+              <div className="rounded-lg bg-emerald-500/10 px-3.5 py-2.5 text-sm text-emerald-300">{info}</div>
+            )}
+            {mode === 'register' && (
+              <p className="text-xs text-[var(--text-faint)]">
+                สมัครแล้วต้องรอผู้ดูแลระบบอนุมัติก่อนจึงจะเข้าใช้งานได้
+              </p>
+            )}
 
             <button
               type="submit"
-              className="mt-1 flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-500"
+              disabled={busy}
+              className="mt-1 flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-wait disabled:opacity-70"
             >
-              {mode === 'login' ? <LogIn size={16} /> : <UserPlus size={16} />}
+              {busy ? <Loader2 size={16} className="animate-spin" /> : mode === 'login' ? <LogIn size={16} /> : <UserPlus size={16} />}
               {mode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}
             </button>
           </form>
