@@ -187,9 +187,16 @@ const PAGE_SIZE = 100
 const JUMP_LIMIT = 10
 
 // `items`: [{ id, code, name }] in report order. Picking one calls onJump(id).
+// `onWildcard` (optional): "*" + Enter calls it (the item report shows every product).
 // Ctrl+F / Cmd+F focuses the box while a report is open; pressing it again while the box
 // already has focus falls through to the browser's own find.
-function ReportJumpSearch({ items, onJump }) {
+function ReportJumpSearch({
+  items,
+  onJump,
+  onWildcard,
+  placeholder = 'ค้นหารหัส/ชื่อสินค้าในรายงาน (Ctrl+F)',
+  notFoundText = 'ไม่พบรหัส/ชื่อสินค้านี้ในรายงาน',
+}) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
@@ -241,6 +248,12 @@ function ReportJumpSearch({ items, onJump }) {
     } else if (e.key === 'Enter') {
       e.preventDefault()
       if (!q) return
+      if (q === '*' && onWildcard) {
+        setQuery('')
+        setOpen(false)
+        setNotFound(false)
+        return onWildcard()
+      }
       const exact = items.find((it) => it.code.toLowerCase() === q)
       if (exact) return choose(exact)
       if (matches.length) return choose(matches[Math.min(active, matches.length - 1)])
@@ -266,7 +279,7 @@ function ReportJumpSearch({ items, onJump }) {
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         onKeyDown={handleKeyDown}
-        placeholder="ค้นหารหัส/ชื่อสินค้าในรายงาน (Ctrl+F)"
+        placeholder={placeholder}
         role="combobox"
         aria-expanded={open && matches.length > 0}
         aria-autocomplete="list"
@@ -290,7 +303,7 @@ function ReportJumpSearch({ items, onJump }) {
           ))}
         </ul>
       )}
-      {notFound && <p className="mt-1.5 text-xs text-amber-300">ไม่พบรหัส/ชื่อสินค้านี้ในรายงาน</p>}
+      {notFound && <p className="mt-1.5 text-xs text-amber-300">{notFoundText}</p>}
     </div>
   )
 }
@@ -427,6 +440,20 @@ function ItemLedgerReport() {
     [allLedgers],
   )
   const jumper = useJumpTo(jumpItems, ledgerPage, printRef)
+
+  // The item report's search box covers every product, not just the list on screen:
+  // a product already in the list (ALL / เลือกหลายรหัส) is jumped to; otherwise (nothing
+  // picked yet, a single product open, or a product outside the list) its report opens.
+  const productSearchItems = useMemo(
+    () => sortedProducts.map((p) => ({ id: p.id, code: p.code, name: p.name })),
+    [sortedProducts],
+  )
+  function handleProductSearch(id) {
+    if (isList && jumpItems.some((it) => it.id === id)) return jumper.jump(id)
+    const product = products.find((p) => p.id === id)
+    if (product) setSelected(product)
+  }
+
   const exportBase = selected === 'ALL' ? 'item-ledger-all' : isMulti ? 'item-ledger-multi' : `item-ledger-${selected?.code}`
 
   function exportBlocks() {
@@ -543,7 +570,16 @@ function ItemLedgerReport() {
       </div>
 
       <div className="mb-5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
-        <DateRangeBar optional from={range.from} to={range.to} onApply={(from, to) => setRange({ from, to })} />
+        <DateRangeBar
+          optional
+          from={range.from}
+          to={range.to}
+          onApply={(from, to) => {
+            setRange({ from, to })
+            // a date search needs a product to show: ask for one if none is picked yet
+            if (!selected) setPickerOpen(true)
+          }}
+        />
         <p className="mt-2 text-xs text-[var(--text-faint)]">
           {range.from
             ? `ยอดยกมา = ยอดคงเหลือจากรายการรับ-จ่ายก่อนวันที่ ${toThaiDate(range.from)}`
@@ -551,15 +587,21 @@ function ItemLedgerReport() {
         </p>
       </div>
 
-      {!selected && (
-        <div className="rounded-xl border border-dashed border-[var(--border-color)] bg-[var(--bg-card)] py-16 text-center text-sm text-[var(--text-faint)]">
-          กรุณากรอกรหัสสินค้าเพื่อดูรายงาน (หรือใส่ * แล้ว Enter เพื่อดูทุกรายการ)
+      {products.length > 0 && (
+        <div className="mb-3">
+          <ReportJumpSearch
+            items={productSearchItems}
+            onJump={handleProductSearch}
+            onWildcard={() => setSelected('ALL')}
+            placeholder="ค้นหารหัส/ชื่อสินค้า หรือ * เพื่อดูทั้งหมด (Ctrl+F)"
+            notFoundText="ไม่พบรหัส/ชื่อสินค้านี้"
+          />
         </div>
       )}
 
-      {isList && allLedgers.length > 0 && (
-        <div className="mb-3">
-          <ReportJumpSearch items={jumpItems} onJump={jumper.jump} />
+      {!selected && (
+        <div className="rounded-xl border border-dashed border-[var(--border-color)] bg-[var(--bg-card)] py-16 text-center text-sm text-[var(--text-faint)]">
+          กรุณากรอกรหัสสินค้าเพื่อดูรายงาน (หรือใส่ * แล้ว Enter เพื่อดูทุกรายการ)
         </div>
       )}
 

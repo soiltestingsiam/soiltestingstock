@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Search, Layers, ListChecks, X } from 'lucide-react'
 import Modal from './Modal'
 import { inputClass } from './FormField'
@@ -16,6 +16,16 @@ export default function ProductPickerModal({ open, onClose, onPick }) {
   const [notFound, setNotFound] = useState(false)
   const [multi, setMulti] = useState(false)
   const [picked, setPicked] = useState(() => new Map()) // id -> product (keeps tick order)
+
+  // always start fresh in "เลือกรหัสเดียว" mode — the modal stays mounted between opens,
+  // and a leftover multi mode made Enter only tick codes and * do nothing
+  useEffect(() => {
+    if (!open) return
+    setMulti(false)
+    setQuery('')
+    setNotFound(false)
+    setPicked(new Map())
+  }, [open])
 
   const q = query.trim()
   const isWildcard = q === '*'
@@ -55,10 +65,8 @@ export default function ProductPickerModal({ open, onClose, onPick }) {
   function handleSearch(e) {
     e.preventDefault()
     if (!q) return
-    if (isWildcard) {
-      if (!multi) pick('ALL')
-      return
-    }
+    // * means every product in either mode
+    if (isWildcard) return pick('ALL')
     const exact =
       products.find((p) => p.code === q) ??
       (() => {
@@ -164,7 +172,7 @@ export default function ProductPickerModal({ open, onClose, onPick }) {
 
       {notFound && <p className="mt-3 text-sm text-amber-300">ไม่พบรหัสสินค้า "{q}"</p>}
 
-      {isWildcard && !multi && (
+      {isWildcard && (
         <button
           onClick={() => pick('ALL')}
           className="mt-4 flex w-full items-center gap-3 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-left transition hover:bg-blue-500/20"
