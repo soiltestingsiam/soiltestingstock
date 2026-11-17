@@ -20,6 +20,8 @@ export default function ProductList() {
   const updateProduct = useStore((s) => s.updateProduct)
   const deleteProduct = useStore((s) => s.deleteProduct)
   const applyProductImport = useStore((s) => s.applyProductImport)
+  const movementsOffPrice = useStore((s) => s.movementsOffPrice)
+  const repriceMovements = useStore((s) => s.repriceMovements)
 
   const [query, setQuery] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
@@ -61,7 +63,7 @@ export default function ProductList() {
     setModalOpen(true)
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.code.trim() || !form.name.trim()) return
     const payload = {
       code: form.code.trim(),
@@ -76,9 +78,33 @@ export default function ProductList() {
       alert('รหัสสินค้านี้มีอยู่แล้ว')
       return
     }
-    if (editingId) updateProduct(editingId, payload)
-    else addProduct(payload)
+    if (!editingId) {
+      addProduct(payload)
+      setModalOpen(false)
+      return
+    }
+    // PRODUCT LIST is the price of record: offer to bring this product's existing Stock In /
+    // Stock Out rows (and so every report) to the saved price. Asked whenever rows differ,
+    // not only when the price was just changed, so re-saving also fixes older mismatches.
+    const before = products.find((p) => p.id === editingId)
+    const offPrice = before ? movementsOffPrice(before, payload.unitPrice).length : 0
+    const reprice =
+      offPrice > 0 &&
+      confirm(
+        `ราคาของ ${payload.code}: ${formatMoney(payload.unitPrice)} บาท/หน่วย\n\n` +
+          `มีรายการรับ-จ่ายเดิมของสินค้านี้ ${formatNumber(offPrice)} รายการที่ราคาไม่ตรงกับราคานี้\n\n` +
+          `ตกลง = ปรับราคาและมูลค่าของรายการเหล่านั้นเป็นราคานี้ด้วย (รายงานจะตรงกับ PRODUCT LIST)\n` +
+          `ยกเลิก = บันทึกเฉพาะราคาใน PRODUCT LIST`,
+      )
     setModalOpen(false)
+    const saved = await updateProduct(editingId, payload)
+    if (saved && reprice && before) {
+      const changed = await repriceMovements([{ product: before, price: payload.unitPrice }])
+      setImportSummary({
+        type: 'success',
+        message: `บันทึก ${payload.code} แล้ว และปรับราคารายการรับ-จ่ายเดิม ${formatNumber(changed)} รายการเป็น ${formatMoney(payload.unitPrice)} บาท`,
+      })
+    }
   }
 
   function handleDelete(p) {
@@ -132,7 +158,23 @@ export default function ProductList() {
       !confirm(`ยืนยันลบสินค้า ${importPlan.removed.length} รายการที่ไม่มีในไฟล์ออกจากระบบ?`)
     )
       return
-    applyProductImport(importPlan)
+    // price changes from the file: offer to re-price those products' existing movements too
+    const byCode = new Map(products.map((p) => [p.code, p]))
+    const priceChanges = importPlan.updated
+      .filter((u) => u.updates.unitPrice !== undefined && byCode.has(u.code))
+      .map((u) => ({ product: byCode.get(u.code), price: Number(u.updates.unitPrice) || 0 }))
+    const offPrice = priceChanges.reduce((n, c) => n + movementsOffPrice(c.product, c.price).length, 0)
+    const reprice =
+      offPrice > 0 &&
+      confirm(
+        `ไฟล์นี้เปลี่ยนราคาสินค้า ${formatNumber(priceChanges.length)} รายการ\n\n` +
+          `ตกลง = ปรับราคาและมูลค่าของรายการรับ-จ่ายเดิมของสินค้าเหล่านั้น (${formatNumber(offPrice)} รายการ) เป็นราคาใหม่ด้วย\n` +
+          `ยกเลิก = เปลี่ยนเฉพาะราคาใน PRODUCT LIST`,
+      )
+    const done = (async () => {
+      const ok = await applyProductImport(importPlan)
+      return ok && reprice ? repriceMovements(priceChanges) : 0
+    })()
     const parts = [
       `เพิ่มใหม่ ${importPlan.added.length}`,
       `อัปเดตเป็นข้อมูลใหม่ ${importPlan.updated.length}`,
@@ -140,8 +182,14 @@ export default function ProductList() {
     ]
     if (importPlan.removed.length) parts.push(`ลบ ${importPlan.removed.length}`)
     if (importPlan.skipped.length) parts.push(`ข้าม ${importPlan.skipped.length} (สินค้าใหม่ที่ไม่มีชื่อ)`)
-    setImportSummary({ type: 'success', message: `นำเข้าสำเร็จ: ${parts.join(', ')} รายการ` })
+    const message = `นำเข้าสำเร็จ: ${parts.join(', ')} รายการ`
+    setImportSummary({ type: 'success', message: reprice ? `${message} — กำลังปรับราคารายการรับ-จ่ายเดิม...` : message })
     setPendingImport(null)
+    if (reprice) {
+      done.then((changed) =>
+        setImportSummary({ type: 'success', message: `${message} และปรับราคารายการรับ-จ่ายเดิม ${formatNumber(changed)} รายการ` }),
+      )
+    }
   }
 
   return (
