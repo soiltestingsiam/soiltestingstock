@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { thaiCompare } from '../utils/format'
-import { filterForProduct } from '../utils/stockCalc'
 import { ceToISO, isoToCE, todayDDMMYYYY } from '../utils/date'
 import { useAuthStore } from './useAuthStore'
 
@@ -82,10 +81,6 @@ function movementToRow(direction, entry) {
     note: entry.note || null,
     created_by: currentUsername(),
   }
-}
-
-function roundMoney(n) {
-  return Math.round((Number(n) || 0) * 100) / 100
 }
 
 function sortProducts(products) {
@@ -312,52 +307,6 @@ export const useStore = create((set, get) => ({
   },
 
   getProduct: (id) => get().products.find((p) => p.id === id),
-
-  // ---------- price sync: PRODUCT LIST price -> existing Stock In / Stock Out rows ----------
-  // Rows of `product` whose unit price / total don't already match `price`
-  // (total = qty × price, rounded to satang). Includes imported ยอดยกมา rows.
-  movementsOffPrice: (product, price) => {
-    const { stockIns, stockOuts } = get()
-    return filterForProduct([...stockIns, ...stockOuts], product).filter(
-      (m) => m.price !== price || m.total !== roundMoney(m.qty * price),
-    )
-  },
-
-  // Re-prices every existing movement of each { product, price } to that price. Rows are
-  // grouped by (price, qty) so each group is one UPDATE (total = qty × price is the same
-  // for the whole group) instead of one request per row. Returns the number of rows changed.
-  repriceMovements: async (changes) => {
-    const groups = new Map()
-    changes.forEach(({ product, price }) => {
-      get()
-        .movementsOffPrice(product, price)
-        .forEach((m) => {
-          const key = `${price}|${m.qty}`
-          if (!groups.has(key)) groups.set(key, { price, total: roundMoney(m.qty * price), ids: [] })
-          groups.get(key).ids.push(m.id)
-        })
-    })
-    const requests = []
-    groups.forEach(({ price, total, ids }) => {
-      for (let i = 0; i < ids.length; i += 100) requests.push({ price, total, ids: ids.slice(i, i + 100) })
-    })
-    let changed = 0
-    let failure = null
-    for (let i = 0; i < requests.length && !failure; i += 6) {
-      const results = await Promise.all(
-        requests.slice(i, i + 6).map(({ price, total, ids }) =>
-          supabase.from('stock_movements').update({ unit_price: price, total }).in('id', ids),
-        ),
-      )
-      results.forEach(({ error }, j) => {
-        if (error) failure = error
-        else changed += requests[i + j].ids.length
-      })
-    }
-    await get().refetchMovements()
-    if (failure) alert(`ปรับราคารายการรับ-จ่ายไม่สำเร็จบางส่วน: ${failure.message}`)
-    return changed
-  },
 
   // ---------- Stock In ----------
   addStockIn: async (entry) => {

@@ -7,10 +7,12 @@ import DateTextInput from '../components/DateTextInput'
 import TransactionSearchModal from '../components/TransactionSearchModal'
 import StockImportModal from '../components/StockImportModal'
 import ProductCodeField from '../components/ProductCodeField'
+import MoneyInput from '../components/MoneyInput'
 import { WarehouseIllustration } from '../components/DashboardIllustrations'
 import { useStore } from '../store/useStore'
-import { isValidDDMMYYYY, todayDDMMYYYY } from '../utils/date'
+import { ddmmyyyyToSortable, isValidDDMMYYYY, todayDDMMYYYY } from '../utils/date'
 import { formatMoney, lineTotal } from '../utils/format'
+import { filterForProduct } from '../utils/stockCalc'
 
 function makeEmptyForm() {
   return {
@@ -34,6 +36,7 @@ export default function StockIn() {
   const stockIns = useStore((s) => s.stockIns)
   const addStockIn = useStore((s) => s.addStockIn)
   const updateStockIn = useStore((s) => s.updateStockIn)
+  const updateProduct = useStore((s) => s.updateProduct)
   const products = useStore((s) => s.products)
 
   const [form, setForm] = useState(makeEmptyForm)
@@ -59,8 +62,14 @@ export default function StockIn() {
     setForm((f) => ({ ...f, qty, total: lineTotal(qty, f.price) }))
   }
 
-  // ราคา / หน่วย always comes from PRODUCT LIST (it isn't editable here — change the price
-  // in PRODUCT LIST), and ราคารวม is always จำนวน × ราคา.
+  function handlePriceChange(price) {
+    setForm((f) => ({ ...f, price, total: lineTotal(f.qty, price) }))
+  }
+
+  // ราคา / หน่วย starts from PRODUCT LIST but is the real cost of this receipt (each
+  // receipt is its own FIFO lot, as in the CD accounting program). Saving the newest
+  // receipt at a different price moves PRODUCT LIST to that price, so the next receipt
+  // starts from the latest cost.
   function productFor(f) {
     return (f.productId && products.find((p) => p.id === f.productId)) || products.find((p) => p.code === f.productCode)
   }
@@ -85,33 +94,41 @@ export default function StockIn() {
     if (!form.productCode.trim()) return alert('กรุณากรอกรหัสสินค้า')
     if (!form.productName) return alert('ไม่พบรหัสสินค้านี้ใน PRODUCT LIST')
     if (!(Number(form.qty) > 0)) return alert('กรุณากรอกจำนวนให้มากกว่า 0')
-    // re-read the price at save time, in case PRODUCT LIST changed while the form was open
     const product = productFor(form)
     if (!product) return alert('ไม่พบรหัสสินค้านี้ใน PRODUCT LIST')
-    const price = Number(product.unitPrice) || 0
+    const price = Number(form.price) || 0
     const payload = {
       ...form,
       productId: product.id,
       productCode: form.productCode.trim(),
       qty: Number(form.qty) || 0,
       price,
-      total: Number(lineTotal(form.qty, price)) || 0,
+      total: Number(form.total) || 0,
       // Preserve an imported row's movementType (e.g. opening_balance) when editing it
       // here — this ordinary form only ever creates new rows as 'in'.
       movementType: form.movementType || 'in',
     }
     if (editingId) updateStockIn(editingId, payload)
     else addStockIn(payload)
-    setSavedMsg(editingId ? 'บันทึกการแก้ไขเรียบร้อย' : `บันทึกรับสินค้า ${payload.productCode} เรียบร้อย`)
-    setTimeout(() => setSavedMsg(''), 3000)
+
+    // newest receipt of this product (by date) at a new price -> PRODUCT LIST follows.
+    // A back-dated receipt or a ยอดยกมา row never changes it.
+    const otherDates = filterForProduct(stockIns, product)
+      .filter((t) => t.id !== editingId)
+      .map((t) => ddmmyyyyToSortable(t.date) ?? 0)
+    const isNewest = (ddmmyyyyToSortable(payload.date) ?? 0) >= Math.max(0, ...otherDates)
+    const updatesList =
+      payload.movementType !== 'opening_balance' && isNewest && price !== (Number(product.unitPrice) || 0)
+    if (updatesList) updateProduct(product.id, { unitPrice: price })
+
+    const msg = editingId ? 'บันทึกการแก้ไขเรียบร้อย' : `บันทึกรับสินค้า ${payload.productCode} เรียบร้อย`
+    setSavedMsg(updatesList ? `${msg} · อัปเดตราคาใน PRODUCT LIST เป็น ${formatMoney(price)} บาท` : msg)
+    setTimeout(() => setSavedMsg(''), 4000)
     resetForm()
   }
 
   function handleEdit(row) {
     setEditingId(row.id)
-    // an older row may carry a different price: editing brings it to the PRODUCT LIST price
-    const product = (row.productId && products.find((p) => p.id === row.productId)) || products.find((p) => p.code === row.productCode)
-    const price = product ? String(Number(product.unitPrice) || 0) : String(row.price)
     setForm({
       date: row.date,
       productCode: row.productCode,
@@ -120,8 +137,8 @@ export default function StockIn() {
       supplier: row.supplier ?? '',
       po: row.po ?? '',
       qty: String(row.qty),
-      price,
-      total: lineTotal(row.qty, price),
+      price: String(row.price),
+      total: String(row.total),
       soLot: row.soLot ?? '',
       customer: row.customer ?? '',
       note: row.note ?? '',
@@ -175,20 +192,11 @@ export default function StockIn() {
             <FormRow label="6. จำนวน" required>
               <input type="number" min="0" step="any" value={form.qty} onChange={(e) => handleQtyChange(e.target.value)} className={inputClass()} />
             </FormRow>
-            <FormRow label="7. ราคา / หน่วย" hint="ดึงจาก PRODUCT LIST (แก้ราคาได้ที่ PRODUCT LIST)">
-              <input
-                value={form.price === '' ? '' : formatMoney(form.price)}
-                readOnly
-                placeholder="ขึ้นอัตโนมัติจาก PRODUCT LIST"
-                className={inputClass('cursor-not-allowed opacity-80')}
-              />
+            <FormRow label="7. ราคา / หน่วย" hint="ต้นทุนจริงของการรับเข้าครั้งนี้ (ดึงราคาล่าสุดจาก PRODUCT LIST มาให้ แก้ได้)">
+              <MoneyInput value={form.price} onChange={handlePriceChange} />
             </FormRow>
-            <FormRow label="8. ราคารวม" hint="จำนวน × ราคา / หน่วย">
-              <input
-                value={form.total === '' ? '' : formatMoney(form.total)}
-                readOnly
-                className={inputClass('cursor-not-allowed opacity-80')}
-              />
+            <FormRow label="8. ราคารวม" hint="คำนวณอัตโนมัติ แก้ไขเองได้">
+              <MoneyInput value={form.total} onChange={(v) => setForm((f) => ({ ...f, total: v }))} />
             </FormRow>
             <FormRow label="9. SO / LOT">
               <input value={form.soLot} onChange={set('soLot')} className={inputClass()} />

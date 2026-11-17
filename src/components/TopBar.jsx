@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Settings, LogOut, UserCircle2 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Settings, LogOut, UserCircle2, History } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 import SealLogo from './SealLogo'
 import SettingsModal from './SettingsModal'
 import { useAuthStore, useCurrentUser, usePendingCount } from '../store/useAuthStore'
@@ -10,6 +10,7 @@ export default function TopBar() {
   const currentUser = useCurrentUser()
   const logout = useAuthStore((s) => s.logout)
   const pendingCount = usePendingCount()
+  const isAdmin = currentUser?.role === 'Admin' && currentUser?.status === 'approved'
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   async function handleSignOut() {
@@ -50,6 +51,16 @@ export default function TopBar() {
               </div>
             </div>
           </div>
+          {isAdmin && (
+            <Link
+              to="/audit-log"
+              title="LOG การใช้งาน"
+              aria-label="LOG การใช้งาน"
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)] sm:h-10 sm:w-10"
+            >
+              <History size={18} />
+            </Link>
+          )}
           <button
             onClick={() => setSettingsOpen(true)}
             className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)] sm:h-10 sm:w-10"

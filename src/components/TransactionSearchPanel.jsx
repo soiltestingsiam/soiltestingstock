@@ -4,6 +4,7 @@ import { Search, Pencil, Trash2, ArrowDownCircle, ArrowUpCircle, CalendarRange }
 import { inputClass } from './FormField'
 import DateTextInput from './DateTextInput'
 import { useStore } from '../store/useStore'
+import { useCostedStockOuts } from '../store/useCostedStockOuts'
 import { ddmmyyyyToSortable, toThaiDate } from '../utils/date'
 import { formatMoney, formatNumber } from '../utils/format'
 
@@ -16,7 +17,8 @@ const TYPE_OPTIONS = [
 // Search / edit / delete every row keyed in on the Stock In and Stock Out pages.
 export default function TransactionSearchPanel({ initialType = 'all', onBeforeNavigate, tableMaxHeight }) {
   const stockIns = useStore((s) => s.stockIns)
-  const stockOuts = useStore((s) => s.stockOuts)
+  // จ่ายออก rows show their FIFO cost, matching the reports
+  const stockOuts = useCostedStockOuts()
   const deleteStockIn = useStore((s) => s.deleteStockIn)
   const deleteStockOut = useStore((s) => s.deleteStockOut)
   const navigate = useNavigate()

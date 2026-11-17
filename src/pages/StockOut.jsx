@@ -11,8 +11,9 @@ import MoneyInput from '../components/MoneyInput'
 import { TruckIllustration } from '../components/DashboardIllustrations'
 import { useStore } from '../store/useStore'
 import { isValidDDMMYYYY, todayDDMMYYYY } from '../utils/date'
-import { formatNumber, lineTotal } from '../utils/format'
+import { formatMoney, formatNumber, lineTotal } from '../utils/format'
 import { filterForProduct, sumMovements } from '../utils/stockCalc'
+import { fifoOutCosts } from '../utils/fifoCost'
 
 function makeEmptyForm() {
   return {
@@ -36,6 +37,7 @@ export default function StockOut() {
   const stockOuts = useStore((s) => s.stockOuts)
   const addStockOut = useStore((s) => s.addStockOut)
   const updateStockOut = useStore((s) => s.updateStockOut)
+  const products = useStore((s) => s.products)
 
   const [form, setForm] = useState(makeEmptyForm)
   const [editingId, setEditingId] = useState(null)
@@ -63,6 +65,21 @@ export default function StockOut() {
     const outs = stockOuts.filter((t) => t.id !== editingId)
     return sumMovements(filterForProduct(stockIns, product)).qty - sumMovements(filterForProduct(outs, product)).qty
   }, [form.productId, form.productCode, form.productName, stockIns, stockOuts, editingId])
+
+  // ราคา / หน่วย of an issue is its FIFO cost (เข้าก่อน-ออกก่อน): units come out of the
+  // oldest receipts first, priced at what those lots cost, averaged into one line.
+  // Recomputed live from the date + จำนวน; an imported ยอดยกมา row is a lot, not an issue,
+  // so it keeps its own price.
+  const isLotRow = form.movementType === 'opening_balance'
+  const fifo = useMemo(() => {
+    const qty = Number(form.qty)
+    if (isLotRow || !form.productId || !form.productName || !(qty > 0) || !isValidDDMMYYYY(form.date)) return null
+    const product = products.find((p) => p.id === form.productId) ?? { id: form.productId, code: form.productCode.trim() }
+    const NEW = '__this_row__'
+    const outs = filterForProduct(stockOuts.filter((t) => t.id !== editingId), product)
+    const draft = { id: NEW, date: form.date, qty, price: Number(product.unitPrice) || 0, total: 0, movementType: 'out' }
+    return fifoOutCosts(filterForProduct(stockIns, product), [...outs, draft]).get(NEW) ?? null
+  }, [isLotRow, form.qty, form.date, form.productId, form.productCode, form.productName, products, stockIns, stockOuts, editingId])
 
   const isReservation = !!form.so.trim() && !form.invoice.trim()
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
@@ -103,8 +120,8 @@ export default function StockOut() {
       ...form,
       productCode: form.productCode.trim(),
       qty,
-      price: Number(form.price) || 0,
-      total: Number(form.total) || 0,
+      price: isLotRow ? Number(form.price) || 0 : fifo?.price ?? 0,
+      total: isLotRow ? Number(form.total) || 0 : fifo?.total ?? 0,
       // Preserve an imported row's movementType (e.g. opening_balance) when editing it
       // here — this ordinary form only ever creates new rows as 'out'.
       movementType: form.movementType || 'out',
@@ -186,12 +203,34 @@ export default function StockOut() {
             <FormRow label="7. จำนวน" required>
               <input type="number" min="0" step="any" value={form.qty} onChange={(e) => handleQtyChange(e.target.value)} className={inputClass()} />
             </FormRow>
-            <FormRow label="8. ราคา / หน่วย">
-              <MoneyInput value={form.price} onChange={handlePriceChange} />
-            </FormRow>
-            <FormRow label="9. ราคารวม" hint="คำนวณอัตโนมัติ แก้ไขเองได้">
-              <MoneyInput value={form.total} onChange={(v) => setForm((f) => ({ ...f, total: v }))} />
-            </FormRow>
+            {isLotRow ? (
+              <>
+                <FormRow label="8. ราคา / หน่วย" hint="รายการยอดยกมา: ใช้ราคาของรายการนี้เอง">
+                  <MoneyInput value={form.price} onChange={handlePriceChange} />
+                </FormRow>
+                <FormRow label="9. ราคารวม" hint="คำนวณอัตโนมัติ แก้ไขเองได้">
+                  <MoneyInput value={form.total} onChange={(v) => setForm((f) => ({ ...f, total: v }))} />
+                </FormRow>
+              </>
+            ) : (
+              <>
+                <FormRow label="8. ราคา / หน่วย" hint="ต้นทุนแบบ FIFO (เข้าก่อน-ออกก่อน) เฉลี่ยจากล็อตที่รับเข้าก่อน คำนวณอัตโนมัติ">
+                  <input
+                    value={fifo ? formatMoney(fifo.price) : ''}
+                    readOnly
+                    placeholder="กรอกรหัสสินค้า วันที่ และจำนวน"
+                    className={inputClass('cursor-not-allowed opacity-80')}
+                  />
+                </FormRow>
+                <FormRow label="9. ราคารวม" hint="ต้นทุนรวมของจำนวนที่จ่ายออก">
+                  <input
+                    value={fifo ? formatMoney(fifo.total) : ''}
+                    readOnly
+                    className={inputClass('cursor-not-allowed opacity-80')}
+                  />
+                </FormRow>
+              </>
+            )}
             <FormRow label="10. หมายเหตุ">
               <input value={form.note} onChange={set('note')} className={inputClass()} />
             </FormRow>
