@@ -7,11 +7,10 @@ import DateTextInput from '../components/DateTextInput'
 import TransactionSearchModal from '../components/TransactionSearchModal'
 import StockImportModal from '../components/StockImportModal'
 import ProductCodeField from '../components/ProductCodeField'
-import MoneyInput from '../components/MoneyInput'
 import { WarehouseIllustration } from '../components/DashboardIllustrations'
 import { useStore } from '../store/useStore'
 import { isValidDDMMYYYY, todayDDMMYYYY } from '../utils/date'
-import { lineTotal } from '../utils/format'
+import { formatMoney, lineTotal } from '../utils/format'
 
 function makeEmptyForm() {
   return {
@@ -35,6 +34,7 @@ export default function StockIn() {
   const stockIns = useStore((s) => s.stockIns)
   const addStockIn = useStore((s) => s.addStockIn)
   const updateStockIn = useStore((s) => s.updateStockIn)
+  const products = useStore((s) => s.products)
 
   const [form, setForm] = useState(makeEmptyForm)
   const [editingId, setEditingId] = useState(null)
@@ -59,14 +59,16 @@ export default function StockIn() {
     setForm((f) => ({ ...f, qty, total: lineTotal(qty, f.price) }))
   }
 
-  function handlePriceChange(price) {
-    setForm((f) => ({ ...f, price, total: lineTotal(f.qty, price) }))
+  // ราคา / หน่วย always comes from PRODUCT LIST (it isn't editable here — change the price
+  // in PRODUCT LIST), and ราคารวม is always จำนวน × ราคา.
+  function productFor(f) {
+    return (f.productId && products.find((p) => p.id === f.productId)) || products.find((p) => p.code === f.productCode)
   }
 
   // Entering a code pops in the name and unit price from PRODUCT LIST; ราคารวม follows.
   function handleProductSelect(code, match) {
     setForm((f) => {
-      if (!match) return { ...f, productCode: code, productId: '', productName: '' }
+      if (!match) return { ...f, productCode: code, productId: '', productName: '', price: '', total: '' }
       const price = String(Number(match.unitPrice) || 0)
       return { ...f, productCode: code, productId: match.id, productName: match.name, price, total: lineTotal(f.qty, price) }
     })
@@ -83,12 +85,17 @@ export default function StockIn() {
     if (!form.productCode.trim()) return alert('กรุณากรอกรหัสสินค้า')
     if (!form.productName) return alert('ไม่พบรหัสสินค้านี้ใน PRODUCT LIST')
     if (!(Number(form.qty) > 0)) return alert('กรุณากรอกจำนวนให้มากกว่า 0')
+    // re-read the price at save time, in case PRODUCT LIST changed while the form was open
+    const product = productFor(form)
+    if (!product) return alert('ไม่พบรหัสสินค้านี้ใน PRODUCT LIST')
+    const price = Number(product.unitPrice) || 0
     const payload = {
       ...form,
+      productId: product.id,
       productCode: form.productCode.trim(),
       qty: Number(form.qty) || 0,
-      price: Number(form.price) || 0,
-      total: Number(form.total) || 0,
+      price,
+      total: Number(lineTotal(form.qty, price)) || 0,
       // Preserve an imported row's movementType (e.g. opening_balance) when editing it
       // here — this ordinary form only ever creates new rows as 'in'.
       movementType: form.movementType || 'in',
@@ -102,6 +109,9 @@ export default function StockIn() {
 
   function handleEdit(row) {
     setEditingId(row.id)
+    // an older row may carry a different price: editing brings it to the PRODUCT LIST price
+    const product = (row.productId && products.find((p) => p.id === row.productId)) || products.find((p) => p.code === row.productCode)
+    const price = product ? String(Number(product.unitPrice) || 0) : String(row.price)
     setForm({
       date: row.date,
       productCode: row.productCode,
@@ -110,8 +120,8 @@ export default function StockIn() {
       supplier: row.supplier ?? '',
       po: row.po ?? '',
       qty: String(row.qty),
-      price: String(row.price),
-      total: String(row.total),
+      price,
+      total: lineTotal(row.qty, price),
       soLot: row.soLot ?? '',
       customer: row.customer ?? '',
       note: row.note ?? '',
@@ -165,11 +175,20 @@ export default function StockIn() {
             <FormRow label="6. จำนวน" required>
               <input type="number" min="0" step="any" value={form.qty} onChange={(e) => handleQtyChange(e.target.value)} className={inputClass()} />
             </FormRow>
-            <FormRow label="7. ราคา / หน่วย">
-              <MoneyInput value={form.price} onChange={handlePriceChange} />
+            <FormRow label="7. ราคา / หน่วย" hint="ดึงจาก PRODUCT LIST (แก้ราคาได้ที่ PRODUCT LIST)">
+              <input
+                value={form.price === '' ? '' : formatMoney(form.price)}
+                readOnly
+                placeholder="ขึ้นอัตโนมัติจาก PRODUCT LIST"
+                className={inputClass('cursor-not-allowed opacity-80')}
+              />
             </FormRow>
-            <FormRow label="8. ราคารวม" hint="คำนวณอัตโนมัติ แก้ไขเองได้">
-              <MoneyInput value={form.total} onChange={(v) => setForm((f) => ({ ...f, total: v }))} />
+            <FormRow label="8. ราคารวม" hint="จำนวน × ราคา / หน่วย">
+              <input
+                value={form.total === '' ? '' : formatMoney(form.total)}
+                readOnly
+                className={inputClass('cursor-not-allowed opacity-80')}
+              />
             </FormRow>
             <FormRow label="9. SO / LOT">
               <input value={form.soLot} onChange={set('soLot')} className={inputClass()} />

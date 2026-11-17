@@ -9,6 +9,7 @@ import Reports from './pages/Reports'
 import ProductList from './pages/ProductList'
 import Login from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
+import UpdatePrompt from './components/UpdatePrompt'
 import { useThemeStore } from './store/useThemeStore'
 import { useStore } from './store/useStore'
 import { useAuthStore } from './store/useAuthStore'
@@ -60,6 +61,7 @@ export default function App() {
   }, [approvedUserId])
 
   return (
+    <>
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route
@@ -123,5 +125,8 @@ export default function App() {
         }
       />
     </Routes>
+    {/* "มีเวอร์ชันใหม่" popup — on every page, including login */}
+    <UpdatePrompt />
+    </>
   )
 }
