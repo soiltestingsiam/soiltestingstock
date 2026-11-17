@@ -49,7 +49,23 @@ export default function SettingsModal({ open, onClose }) {
       ) : (
         <UsersTab currentUser={currentUser} />
       )}
+      <VersionInfo />
     </Modal>
+  )
+}
+
+// Which build this browser is running — compare with /version.json (what is deployed)
+// when checking whether the "มีเวอร์ชันใหม่" popup should have appeared.
+function VersionInfo() {
+  const version = /^[0-9a-f]{40}$/.test(__APP_VERSION__) ? __APP_VERSION__.slice(0, 7) : __APP_VERSION__
+  const builtAt = new Date(__APP_BUILT_AT__)
+  return (
+    <p className="mt-6 border-t border-[var(--border-color-soft)] pt-3 text-center text-[11px] text-[var(--text-faint)]">
+      เวอร์ชันระบบ {version}
+      {!Number.isNaN(builtAt.getTime()) && (
+        <> · อัปเดตเมื่อ {builtAt.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</>
+      )}
+    </p>
   )
 }
 
