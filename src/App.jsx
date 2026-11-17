@@ -13,7 +13,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import UpdatePrompt from './components/UpdatePrompt'
 import { useThemeStore } from './store/useThemeStore'
 import { useStore } from './store/useStore'
-import { useAuthStore } from './store/useAuthStore'
+import { useAuthStore, isAdminState } from './store/useAuthStore'
 
 // Gates the data-driven pages behind the initial Supabase fetch so they don't flash an
 // empty "ไม่พบสินค้า" state before the first load resolves.
@@ -40,9 +40,10 @@ function RequireData({ children }) {
   return children
 }
 
-// Admin-only pages: everyone else is sent back to Home.
+// Admin-only pages: everyone else is sent back to Home (the owner counts as admin only
+// while admin mode is on).
 function AdminOnly({ children }) {
-  const isAdmin = useAuthStore((s) => s.profile?.role === 'Admin' && s.profile?.status === 'approved')
+  const isAdmin = useAuthStore(isAdminState)
   return isAdmin ? children : <Navigate to="/" replace />
 }
 

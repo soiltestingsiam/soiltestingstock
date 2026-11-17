@@ -10,6 +10,10 @@ export const usernameToEmail = (username) => `${username.trim().toLowerCase()}@$
 const USERNAME_RE = /^[A-Za-z0-9._-]{3,32}$/
 const NOT_CONFIGURED_MSG = 'ยังไม่ได้ตั้งค่า Supabase — ตรวจสอบไฟล์ .env (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)'
 
+// Never select is_owner / stealth: they must not be sent to any browser (not even the
+// owner's — the owner learns its own state through the owner_state() RPC instead).
+const PROFILE_COLUMNS = 'id, username, role, status, created_at, approved_by, approved_at'
+
 const STATUS_MESSAGES = {
   pending: 'บัญชีของคุณรอการอนุมัติ',
   rejected: 'บัญชีของคุณไม่ได้รับอนุมัติ',
@@ -28,9 +32,28 @@ function rowToProfile(row) {
 }
 
 async function fetchProfile(userId) {
-  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
+  const { data, error } = await supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', userId).maybeSingle()
   if (error) throw error
   return data ? rowToProfile(data) : null
+}
+
+// The caller's own owner flags (false/false for everyone else, and if 004 isn't installed).
+async function fetchOwnerState() {
+  try {
+    const { data, error } = await supabase.rpc('owner_state')
+    if (error) throw error
+    return { isOwner: !!data?.is_owner, stealth: !!data?.stealth }
+  } catch {
+    return { isOwner: false, stealth: false }
+  }
+}
+
+// Effective admin: a real Admin, OR the owner while admin mode is on. Drives every
+// admin-only piece of UI and the data loaded for it.
+export function isAdminState(s) {
+  const p = s.profile
+  if (!p || p.status !== 'approved') return false
+  return p.role === 'Admin' || (s.isOwner && s.stealth)
 }
 
 let profilesChannel = null
@@ -40,6 +63,8 @@ export const useAuthStore = create((set, get) => ({
   profile: null, // the signed-in user's own profiles row
   initialized: false, // first getSession() + profile load finished
   profiles: [], // every profile (admins only — RLS returns just your own row otherwise)
+  isOwner: false, // this account is the designated owner (private; from owner_state())
+  stealth: false, // owner's admin mode is on
 
   // Called once at app start: restores the saved Supabase session (if any) and follows
   // sign-in / sign-out / token refresh from then on.
@@ -79,11 +104,12 @@ export const useAuthStore = create((set, get) => ({
       // (pending/rejected account) — don't resurrect it.
       const { data } = await supabase.auth.getSession()
       if (data.session?.user.id !== session.user.id) return
-      set({ session, profile })
+      const { isOwner, stealth } = await fetchOwnerState()
+      set({ session, profile, isOwner, stealth })
       get().subscribeProfiles()
-      if (profile?.role === 'Admin' && profile.status === 'approved') get().loadProfiles()
+      if (isAdminState(get())) get().loadProfiles()
     } catch {
-      set({ session, profile: null })
+      set({ session, profile: null, isOwner: false, stealth: false })
     }
   },
 
@@ -92,7 +118,7 @@ export const useAuthStore = create((set, get) => ({
       supabase.removeChannel(profilesChannel)
       profilesChannel = null
     }
-    set({ session: null, profile: null, profiles: [] })
+    set({ session: null, profile: null, profiles: [], isOwner: false, stealth: false })
   },
 
   login: async (username, password) => {
@@ -113,9 +139,10 @@ export const useAuthStore = create((set, get) => ({
       get()._clear()
       return { success: false, message: STATUS_MESSAGES[profile?.status] ?? STATUS_MESSAGES.pending }
     }
-    set({ session: data.session, profile })
+    const { isOwner, stealth } = await fetchOwnerState()
+    set({ session: data.session, profile, isOwner, stealth })
     get().subscribeProfiles()
-    if (profile.role === 'Admin') get().loadProfiles()
+    if (isAdminState(get())) get().loadProfiles()
     return { success: true }
   },
 
@@ -157,7 +184,7 @@ export const useAuthStore = create((set, get) => ({
 
   // ---------- admin: user approval ----------
   loadProfiles: async () => {
-    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: true })
+    const { data, error } = await supabase.from('profiles').select(PROFILE_COLUMNS).order('created_at', { ascending: true })
     if (error) return
     const profiles = (data ?? []).map(rowToProfile)
     const own = profiles.find((p) => p.id === get().session?.user.id)
@@ -179,8 +206,9 @@ export const useAuthStore = create((set, get) => ({
     if (!userId) return
     try {
       const profile = await fetchProfile(userId)
-      set({ profile })
-      if (profile?.role === 'Admin' && profile.status === 'approved') await get().loadProfiles()
+      const { isOwner, stealth } = await fetchOwnerState()
+      set({ profile, isOwner, stealth })
+      if (isAdminState(get())) await get().loadProfiles()
       else set({ profiles: [] })
     } catch {
       // keep the last known state
@@ -202,16 +230,42 @@ export const useAuthStore = create((set, get) => ({
 
   approveUser: (id) => get().updateProfile(id, { status: 'approved' }),
   rejectUser: (id) => get().updateProfile(id, { status: 'rejected' }),
+
+  // Owner only: turn admin mode on/off. On success the owner gains/loses admin UI and the
+  // data behind it; while on, the database stops logging this account's actions.
+  setStealth: async (on) => {
+    try {
+      const { data, error } = await supabase.rpc('set_stealth', { p_on: on })
+      if (error) throw error
+      set({ stealth: !!data?.stealth })
+      if (isAdminState(get())) await get().loadProfiles()
+      else set({ profiles: [] })
+      return true
+    } catch (e) {
+      alert(`สลับโหมดไม่สำเร็จ: ${e.message}`)
+      return false
+    }
+  },
 }))
 
 export function useCurrentUser() {
   return useAuthStore((s) => s.profile)
 }
 
+export function useIsAdmin() {
+  return useAuthStore(isAdminState)
+}
+
+export function useIsOwner() {
+  return useAuthStore((s) => s.isOwner)
+}
+
+export function useStealth() {
+  return useAuthStore((s) => s.stealth)
+}
+
 export function usePendingCount() {
-  return useAuthStore((s) =>
-    s.profile?.role === 'Admin' ? s.profiles.filter((p) => p.status === 'pending').length : 0,
-  )
+  return useAuthStore((s) => (isAdminState(s) ? s.profiles.filter((p) => p.status === 'pending').length : 0))
 }
 
 export default useAuthStore

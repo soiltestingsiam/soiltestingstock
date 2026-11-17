@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import SettingsModal from './SettingsModal'
 import SealLogo from './SealLogo'
-import { useAuthStore, useCurrentUser, usePendingCount } from '../store/useAuthStore'
+import { useAuthStore, useCurrentUser, usePendingCount, useIsAdmin } from '../store/useAuthStore'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Home', icon: Home, end: true },
@@ -31,7 +31,7 @@ export default function Sidebar({ mobileOpen = false, onClose = () => {} }) {
   const currentUser = useCurrentUser()
   const logout = useAuthStore((s) => s.logout)
   const pendingCount = usePendingCount()
-  const isAdmin = currentUser?.role === 'Admin' && currentUser?.status === 'approved'
+  const isAdmin = useIsAdmin()
   const navigate = useNavigate()
   const [settingsOpen, setSettingsOpen] = useState(false)
 
