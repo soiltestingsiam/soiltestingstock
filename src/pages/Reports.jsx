@@ -6,6 +6,7 @@ import { exportItemLedgerPdf } from '../components/ItemLedgerPrint'
 import DateTextInput from '../components/DateTextInput'
 import Pagination, { usePagination } from '../components/Pagination'
 import { useStore } from '../store/useStore'
+import { useCostedStockOuts } from '../store/useCostedStockOuts'
 import { buildItemLedger, buildAllStockSummary, groupByProduct, movementsForProduct, filterForProduct } from '../utils/stockCalc'
 import { ddmmyyyyToSortable, todayDDMMYYYY, toThaiDate } from '../utils/date'
 import { formatMoney, formatNumber, thaiCompare } from '../utils/format'
@@ -381,7 +382,8 @@ function DateRangeBar({ from, to, onApply, optional = false }) {
 function ItemLedgerReport() {
   const products = useStore((s) => s.products)
   const stockIns = useStore((s) => s.stockIns)
-  const stockOuts = useStore((s) => s.stockOuts)
+  // Stock Out valued at FIFO cost (เข้าก่อน-ออกก่อน), see utils/fifoCost.js
+  const stockOuts = useCostedStockOuts()
   // the spec opens the รหัสสินค้า popup straight away
   const [pickerOpen, setPickerOpen] = useState(true)
   // null | 'ALL' | product | { multi: true, ids } (เลือกหลายรหัส from the picker)
@@ -842,7 +844,8 @@ function sumSummaryTotals(rows) {
 function AllStockSummaryReport() {
   const products = useStore((s) => s.products)
   const stockIns = useStore((s) => s.stockIns)
-  const stockOuts = useStore((s) => s.stockOuts)
+  // Stock Out valued at FIFO cost (เข้าก่อน-ออกก่อน), see utils/fifoCost.js
+  const stockOuts = useCostedStockOuts()
   const printRef = useRef(null)
   const [pdfJob, setPdfJob] = useState(null)
 

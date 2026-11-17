@@ -92,9 +92,9 @@ export default function ProductList() {
       offPrice > 0 &&
       confirm(
         `ราคาของ ${payload.code}: ${formatMoney(payload.unitPrice)} บาท/หน่วย\n\n` +
-          `มีรายการรับ-จ่ายเดิมของสินค้านี้ ${formatNumber(offPrice)} รายการที่ราคาไม่ตรงกับราคานี้\n\n` +
-          `ตกลง = ปรับราคาและมูลค่าของรายการเหล่านั้นเป็นราคานี้ด้วย (รายงานจะตรงกับ PRODUCT LIST)\n` +
-          `ยกเลิก = บันทึกเฉพาะราคาใน PRODUCT LIST`,
+          `มีรายการรับเข้า/ยอดยกมาเดิมของสินค้านี้ ${formatNumber(offPrice)} รายการที่ราคาไม่ตรงกับราคานี้\n\n` +
+          `ตกลง = ปรับต้นทุนของรายการรับเข้าเดิมทั้งหมดเป็นราคานี้ (ทุกล็อตจะมีต้นทุนเท่ากัน ต้นทุน FIFO ของรายการจ่ายจะคำนวณใหม่ตาม)\n` +
+          `ยกเลิก = บันทึกเฉพาะราคาใน PRODUCT LIST (ใช้กับการรับเข้าครั้งต่อไป ต้นทุนล็อตเดิมไม่เปลี่ยน)`,
       )
     setModalOpen(false)
     const saved = await updateProduct(editingId, payload)
@@ -102,7 +102,7 @@ export default function ProductList() {
       const changed = await repriceMovements([{ product: before, price: payload.unitPrice }])
       setImportSummary({
         type: 'success',
-        message: `บันทึก ${payload.code} แล้ว และปรับราคารายการรับ-จ่ายเดิม ${formatNumber(changed)} รายการเป็น ${formatMoney(payload.unitPrice)} บาท`,
+        message: `บันทึก ${payload.code} แล้ว และปรับต้นทุนรายการรับเข้าเดิม ${formatNumber(changed)} รายการเป็น ${formatMoney(payload.unitPrice)} บาท`,
       })
     }
   }
@@ -168,8 +168,8 @@ export default function ProductList() {
       offPrice > 0 &&
       confirm(
         `ไฟล์นี้เปลี่ยนราคาสินค้า ${formatNumber(priceChanges.length)} รายการ\n\n` +
-          `ตกลง = ปรับราคาและมูลค่าของรายการรับ-จ่ายเดิมของสินค้าเหล่านั้น (${formatNumber(offPrice)} รายการ) เป็นราคาใหม่ด้วย\n` +
-          `ยกเลิก = เปลี่ยนเฉพาะราคาใน PRODUCT LIST`,
+          `ตกลง = ปรับต้นทุนของรายการรับเข้าเดิมของสินค้าเหล่านั้น (${formatNumber(offPrice)} รายการ) เป็นราคาใหม่ (ทุกล็อตจะมีต้นทุนเท่ากัน)\n` +
+          `ยกเลิก = เปลี่ยนเฉพาะราคาใน PRODUCT LIST (ใช้กับการรับเข้าครั้งต่อไป)`,
       )
     const done = (async () => {
       const ok = await applyProductImport(importPlan)
@@ -183,11 +183,11 @@ export default function ProductList() {
     if (importPlan.removed.length) parts.push(`ลบ ${importPlan.removed.length}`)
     if (importPlan.skipped.length) parts.push(`ข้าม ${importPlan.skipped.length} (สินค้าใหม่ที่ไม่มีชื่อ)`)
     const message = `นำเข้าสำเร็จ: ${parts.join(', ')} รายการ`
-    setImportSummary({ type: 'success', message: reprice ? `${message} — กำลังปรับราคารายการรับ-จ่ายเดิม...` : message })
+    setImportSummary({ type: 'success', message: reprice ? `${message} — กำลังปรับต้นทุนรายการรับเข้าเดิม...` : message })
     setPendingImport(null)
     if (reprice) {
       done.then((changed) =>
-        setImportSummary({ type: 'success', message: `${message} และปรับราคารายการรับ-จ่ายเดิม ${formatNumber(changed)} รายการ` }),
+        setImportSummary({ type: 'success', message: `${message} และปรับต้นทุนรายการรับเข้าเดิม ${formatNumber(changed)} รายการ` }),
       )
     }
   }

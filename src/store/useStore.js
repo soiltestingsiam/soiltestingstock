@@ -314,11 +314,14 @@ export const useStore = create((set, get) => ({
   getProduct: (id) => get().products.find((p) => p.id === id),
 
   // ---------- price sync: PRODUCT LIST price -> existing Stock In / Stock Out rows ----------
-  // Rows of `product` whose unit price / total don't already match `price`
-  // (total = qty × price, rounded to satang). Includes imported ยอดยกมา rows.
+  // Lot rows (receipts and imported ยอดยกมา rows) of `product` whose unit price / total
+  // don't already match `price` (total = qty × price, rounded to satang). Stock Out rows
+  // aren't included: their value is the FIFO cost worked out from these lots
+  // (utils/fifoCost.js), so it follows automatically.
   movementsOffPrice: (product, price) => {
     const { stockIns, stockOuts } = get()
-    return filterForProduct([...stockIns, ...stockOuts], product).filter(
+    const lots = [...stockIns, ...stockOuts.filter((o) => o.movementType === 'opening_balance')]
+    return filterForProduct(lots, product).filter(
       (m) => m.price !== price || m.total !== roundMoney(m.qty * price),
     )
   },
