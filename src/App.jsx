@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import StockIn from './pages/StockIn'
@@ -7,6 +7,7 @@ import StockOut from './pages/StockOut'
 import Stock from './pages/Stock'
 import Reports from './pages/Reports'
 import ProductList from './pages/ProductList'
+import AuditLog from './pages/AuditLog'
 import Login from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
 import UpdatePrompt from './components/UpdatePrompt'
@@ -37,6 +38,12 @@ function RequireData({ children }) {
     )
   }
   return children
+}
+
+// Admin-only pages: everyone else is sent back to Home.
+function AdminOnly({ children }) {
+  const isAdmin = useAuthStore((s) => s.profile?.role === 'Admin' && s.profile?.status === 'approved')
+  return isAdmin ? children : <Navigate to="/" replace />
 }
 
 export default function App() {
@@ -121,6 +128,16 @@ export default function App() {
             <RequireData>
               <ProductList />
             </RequireData>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/audit-log"
+        element={
+          <ProtectedRoute>
+            <AdminOnly>
+              <AuditLog />
+            </AdminOnly>
           </ProtectedRoute>
         }
       />
