@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Moon, Sun, Users, Check, X, ShieldCheck, DatabaseZap, Clock, UserX, RotateCcw } from 'lucide-react'
+import { Moon, Sun, Users, Check, X, ShieldCheck, DatabaseZap, Clock, UserX, RotateCcw, KeyRound, Loader2 } from 'lucide-react'
 import Modal from './Modal'
 import { useThemeStore } from '../store/useThemeStore'
-import { useAuthStore, useCurrentUser, usePendingCount } from '../store/useAuthStore'
+import { useAuthStore, useCurrentUser, usePendingCount, useIsAdmin, useIsOwner, useStealth } from '../store/useAuthStore'
 import { useStore } from '../store/useStore'
 
 export default function SettingsModal({ open, onClose }) {
   const currentUser = useCurrentUser()
-  const isAdmin = currentUser?.role === 'Admin' && currentUser?.status === 'approved'
+  const isAdmin = useIsAdmin()
+  const isOwner = useIsOwner()
   const pendingCount = usePendingCount()
   const [tab, setTab] = useState('theme')
 
@@ -44,6 +45,7 @@ export default function SettingsModal({ open, onClose }) {
       {tab === 'theme' || !isAdmin ? (
         <>
           <ThemeTab />
+          {isOwner && <OwnerModeSection />}
           {isAdmin && <ClearDataSection />}
         </>
       ) : (
@@ -51,6 +53,53 @@ export default function SettingsModal({ open, onClose }) {
       )}
       <VersionInfo />
     </Modal>
+  )
+}
+
+// Visible only to the owner account. Switches admin mode on/off. While on, this account
+// has full admin tools; while off it is an ordinary user. Other admins always see it as
+// a normal "User" either way.
+function OwnerModeSection() {
+  const stealth = useStealth()
+  const setStealth = useAuthStore((s) => s.setStealth)
+  const [busy, setBusy] = useState(false)
+
+  async function toggle() {
+    setBusy(true)
+    await setStealth(!stealth)
+    setBusy(false)
+  }
+
+  return (
+    <div className={`mt-6 rounded-xl border p-4 ${stealth ? 'border-blue-500/40 bg-blue-500/5' : 'border-[var(--border-color)]'}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+            <KeyRound size={16} className={stealth ? 'text-blue-400' : 'text-[var(--text-muted)]'} /> โหมดผู้ดูแลระบบ
+          </div>
+          <p className="text-xs text-[var(--text-muted)]">
+            {stealth
+              ? 'กำลังเปิด — จัดการผู้ใช้และดู LOG ได้ และระบบจะไม่บันทึก LOG การกระทำของบัญชีนี้'
+              : 'ปิดอยู่ — ใช้งานแบบผู้ใช้ทั่วไป (ระบบบันทึก LOG ตามปกติ)'}
+          </p>
+        </div>
+        <button
+          onClick={toggle}
+          disabled={busy}
+          aria-pressed={stealth}
+          title={stealth ? 'ปิดโหมดผู้ดูแลระบบ' : 'เปิดโหมดผู้ดูแลระบบ'}
+          className={`relative flex h-7 w-12 flex-shrink-0 items-center rounded-full transition disabled:opacity-60 ${
+            stealth ? 'bg-blue-600' : 'bg-[var(--bg-hover-strong)]'
+          }`}
+        >
+          {busy ? (
+            <Loader2 size={13} className="absolute left-1/2 -translate-x-1/2 animate-spin text-white" />
+          ) : (
+            <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${stealth ? 'left-6' : 'left-1'}`} />
+          )}
+        </button>
+      </div>
+    </div>
   )
 }
 

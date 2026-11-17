@@ -3,14 +3,14 @@ import { Settings, LogOut, UserCircle2, History } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import SealLogo from './SealLogo'
 import SettingsModal from './SettingsModal'
-import { useAuthStore, useCurrentUser, usePendingCount } from '../store/useAuthStore'
+import { useAuthStore, useCurrentUser, usePendingCount, useIsAdmin } from '../store/useAuthStore'
 
 export default function TopBar() {
   const navigate = useNavigate()
   const currentUser = useCurrentUser()
   const logout = useAuthStore((s) => s.logout)
   const pendingCount = usePendingCount()
-  const isAdmin = currentUser?.role === 'Admin' && currentUser?.status === 'approved'
+  const isAdmin = useIsAdmin()
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   async function handleSignOut() {
