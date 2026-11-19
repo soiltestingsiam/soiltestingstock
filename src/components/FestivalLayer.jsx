@@ -75,13 +75,13 @@ function Twinkles({ count = 16, colors = ['#fff', '#ffe29a'] }) {
   })
 }
 
-function LoyKrathong() {
+function LoyKrathong({ subtle }) {
   return (
     <>
       <div className="fes-moon" style={{ top: '9%', right: '11%' }} />
-      <Lanterns count={7} />
-      <Krathongs count={5} />
-      <Twinkles count={18} />
+      <Lanterns count={subtle ? 3 : 7} />
+      <Krathongs count={subtle ? 2 : 5} />
+      <Twinkles count={subtle ? 8 : 18} />
     </>
   )
 }
@@ -97,8 +97,8 @@ function Bat({ style }) {
   )
 }
 
-function Halloween() {
-  const bats = Array.from({ length: 5 }, (_, i) => ({
+function Halloween({ subtle }) {
+  const bats = Array.from({ length: subtle ? 2 : 5 }, (_, i) => ({
     top: `${8 + rand(i + 2) * 40}%`,
     animationDuration: `${12 + rand(i + 4) * 10}s`,
     animationDelay: `${-rand(i + 6) * 14}s`,
@@ -118,7 +118,7 @@ function Halloween() {
       {bats.map((s, i) => (
         <Bat key={i} style={s} />
       ))}
-      {[12, 50, 86].map((left, i) => (
+      {(subtle ? [50] : [12, 50, 86]).map((left, i) => (
         <div
           key={i}
           className="fes-float"
@@ -131,7 +131,7 @@ function Halloween() {
           </svg>
         </div>
       ))}
-      <Twinkles count={14} colors={['#ff8a3d', '#c4a5ff']} />
+      <Twinkles count={subtle ? 6 : 14} colors={['#ff8a3d', '#c4a5ff']} />
     </>
   )
 }
@@ -150,8 +150,8 @@ function Snow({ count = 40 }) {
   })
 }
 
-function Christmas() {
-  const lights = Array.from({ length: 22 }, (_, i) => i)
+function Christmas({ subtle }) {
+  const lights = Array.from({ length: subtle ? 12 : 22 }, (_, i) => i)
   const colors = ['#ff4d5e', '#ffd93b', '#51cf66', '#4dabf7']
   return (
     <>
@@ -164,13 +164,13 @@ function Christmas() {
           />
         ))}
       </div>
-      <Snow count={46} />
+      <Snow count={subtle ? 18 : 46} />
     </>
   )
 }
 
-function Songkran() {
-  const drops = Array.from({ length: 34 }, (_, i) => ({
+function Songkran({ subtle }) {
+  const drops = Array.from({ length: subtle ? 14 : 34 }, (_, i) => ({
     left: `${rand(i + 2) * 100}%`,
     animationDuration: `${1.4 + rand(i + 4) * 1.6}s`,
     animationDelay: `${-rand(i + 6) * 2}s`,
@@ -180,10 +180,10 @@ function Songkran() {
       {drops.map((s, i) => (
         <span key={i} className="fes-drop" style={s} />
       ))}
-      {[20, 55, 82].map((left, i) => (
+      {(subtle ? [30, 72] : [20, 55, 82]).map((left, i) => (
         <div key={i} className="fes-ripple" style={{ left: `${left}%`, animationDelay: `${i * 0.9}s` }} />
       ))}
-      {[14, 40, 66, 90].map((left, i) => (
+      {(subtle ? [22, 78] : [14, 40, 66, 90]).map((left, i) => (
         <div
           key={`f${i}`}
           className="fes-float"
@@ -197,13 +197,13 @@ function Songkran() {
           </svg>
         </div>
       ))}
-      <Twinkles count={10} colors={['#bfefff', '#7fe3ff']} />
+      <Twinkles count={subtle ? 6 : 10} colors={['#bfefff', '#7fe3ff']} />
     </>
   )
 }
 
-function NewYear() {
-  const fireworks = Array.from({ length: 7 }, (_, i) => ({
+function NewYear({ subtle }) {
+  const fireworks = Array.from({ length: subtle ? 3 : 7 }, (_, i) => ({
     top: `${6 + rand(i + 2) * 42}%`,
     left: `${8 + rand(i + 4) * 84}%`,
     color: ['#ffd27f', '#ff7eb6', '#7fd0ff', '#b7ff8a'][i % 4],
@@ -215,7 +215,7 @@ function NewYear() {
       {fireworks.map((f, i) => (
         <span key={i} className="fes-firework" style={{ top: f.top, left: f.left, color: f.color, animationDuration: f.animationDuration, animationDelay: f.animationDelay }} />
       ))}
-      <Twinkles count={22} colors={['#ffd27f', '#fff', '#ff9ecb']} />
+      <Twinkles count={subtle ? 10 : 22} colors={['#ffd27f', '#fff', '#ff9ecb']} />
     </>
   )
 }
@@ -231,13 +231,15 @@ const DECOR = {
 export default function FestivalLayer() {
   const festival = useActiveFestival()
   const { pathname } = useLocation()
-  // the login page has its own branded story animation — keep festival decorations off it
-  if (pathname === '/login' || festival === 'none' || !festival) return null
+  if (festival === 'none' || !festival) return null
+  // on the login page the decorations are toned down and sit BEHIND the branded story,
+  // so it feels festive without being busy
+  const onLogin = pathname === '/login'
   const Decor = DECOR[festival]
   return (
-    <div className="fes-layer" aria-hidden="true">
-      <div className={`fes-vignette ${festival}`} />
-      {Decor && <Decor />}
+    <div className={`fes-layer ${onLogin ? 'fes-behind' : ''}`} aria-hidden="true">
+      {!onLogin && <div className={`fes-vignette ${festival}`} />}
+      {Decor && <Decor subtle={onLogin} />}
     </div>
   )
 }
