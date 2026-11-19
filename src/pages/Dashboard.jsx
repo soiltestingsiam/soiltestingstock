@@ -9,11 +9,27 @@ import {
 
 export default function Dashboard() {
   return (
-    <div className="min-h-screen bg-[var(--bg-page)]">
-      <TopBar />
+    <div className="relative min-h-screen overflow-hidden bg-[var(--bg-page)]">
+      <div className="aurora" aria-hidden="true">
+        <span style={{ width: 520, height: 520, top: '-16%', left: '-6%', background: 'radial-gradient(circle, #3b82f6, transparent 60%)', opacity: 0.3 }} />
+        <span style={{ width: 460, height: 460, bottom: '-18%', right: '-8%', background: 'radial-gradient(circle, #6366f1, transparent 60%)', animationDelay: '-9s', opacity: 0.3 }} />
+      </div>
 
-      <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 lg:px-10">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
+      <div className="relative z-10">
+        <TopBar />
+
+        <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 lg:px-10">
+          <div className="mb-7 text-center anim-fade-up sm:mb-9">
+            <h1 className="text-3xl font-extrabold tracking-wide text-shine sm:text-4xl">ยินดีต้อนรับสู่ระบบจัดการสต็อก</h1>
+            {/* gold flourish divider */}
+            <div className="mx-auto mt-3 flex items-center justify-center gap-2">
+              <span className="h-px w-10 bg-gradient-to-r from-transparent to-[#d4af37]" />
+              <span className="h-1.5 w-1.5 rotate-45 bg-[#d4af37] [animation:sts-twinkle_2.4s_ease-in-out_infinite]" />
+              <span className="h-px w-10 bg-gradient-to-l from-transparent to-[#d4af37]" />
+            </div>
+            <p className="mt-3 text-sm text-[var(--text-muted)]">STS · SOIL TESTING SIAM — เลือกเมนูด้านล่างเพื่อเริ่มต้นใช้งาน</p>
+          </div>
+          <div className="stagger grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
           <NavCard
             to="/stock-in"
             icon={<WarehouseIllustration />}
@@ -21,6 +37,7 @@ export default function Dashboard() {
             subtitle="Incoming Goods"
             description="Record and track incoming goods"
             glow="rgba(16,185,129,0.22)"
+            floatDelay="0s"
           />
           <NavCard
             to="/stock-out"
@@ -29,6 +46,7 @@ export default function Dashboard() {
             subtitle="Outgoing Goods"
             description="Record outgoing goods and issues"
             glow="rgba(180,83,9,0.24)"
+            floatDelay="-1.2s"
           />
           <NavCard
             to="/stock"
@@ -37,6 +55,7 @@ export default function Dashboard() {
             subtitle="Stock Management"
             description="Check stock balances and status"
             glow="rgba(37,99,235,0.24)"
+            floatDelay="-2.4s"
           />
           <NavCard
             to="/reports"
@@ -45,7 +64,9 @@ export default function Dashboard() {
             subtitle="Reports"
             description="Summary reports and analytics"
             glow="rgba(147,51,234,0.24)"
+            floatDelay="-3.6s"
           />
+          </div>
         </div>
       </div>
     </div>

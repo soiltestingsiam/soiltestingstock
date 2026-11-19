@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Moon, Sun, Users, Check, X, ShieldCheck, DatabaseZap, Clock, UserX, RotateCcw, KeyRound, Loader2 } from 'lucide-react'
+import { Moon, Sun, Users, Check, X, ShieldCheck, DatabaseZap, Clock, UserX, RotateCcw, KeyRound, Loader2, Sparkles, Check as CheckIcon } from 'lucide-react'
 import Modal from './Modal'
 import { useThemeStore } from '../store/useThemeStore'
 import { useAuthStore, useCurrentUser, usePendingCount, useIsAdmin, useIsOwner, useStealth } from '../store/useAuthStore'
 import { useStore } from '../store/useStore'
+import { useFestivalStore } from '../store/useFestivalStore'
+import { FESTIVALS, PICKER_IDS, resolveFestival } from '../festival/festivals'
 
 export default function SettingsModal({ open, onClose }) {
   const currentUser = useCurrentUser()
@@ -45,6 +47,7 @@ export default function SettingsModal({ open, onClose }) {
       {tab === 'theme' || !isAdmin ? (
         <>
           <ThemeTab />
+          {isAdmin && <FestivalSection />}
           {isOwner && <OwnerModeSection />}
           {isAdmin && <ClearDataSection />}
         </>
@@ -53,6 +56,64 @@ export default function SettingsModal({ open, onClose }) {
       )}
       <VersionInfo />
     </Modal>
+  )
+}
+
+// Admin-only: pick the seasonal theme for EVERYONE (saved globally + realtime), or leave
+// it on "อัตโนมัติ" to follow the calendar (e.g. ลอยกระทง in November, ฮาโลวีน late Oct).
+function FestivalSection() {
+  const mode = useFestivalStore((s) => s.mode)
+  const setMode = useFestivalStore((s) => s.setMode)
+  const [busy, setBusy] = useState(null)
+  const autoActive = resolveFestival('auto')
+
+  async function pick(m) {
+    if (busy) return
+    setBusy(m)
+    await setMode(m)
+    setBusy(null)
+  }
+
+  const options = [
+    { id: 'auto', label: 'อัตโนมัติ (ตามวันที่)', emoji: '🗓️', desc: `ตอนนี้: ${FESTIVALS[autoActive].emoji} ${FESTIVALS[autoActive].label}` },
+    ...PICKER_IDS.map((id) => ({ id, label: FESTIVALS[id].label, emoji: FESTIVALS[id].emoji, desc: FESTIVALS[id].desc })),
+  ]
+
+  return (
+    <div className="mt-6">
+      <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+        <Sparkles size={16} className="text-[var(--text-accent)]" /> ธีมเทศกาล
+      </div>
+      <p className="mb-3 text-xs text-[var(--text-muted)]">เลือกธีมตกแต่งทั้งระบบ (มีผลกับผู้ใช้ทุกคน) — ตั้งอัตโนมัติให้เปลี่ยนตามเทศกาลเองก็ได้</p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {options.map((o) => {
+          const selected = mode === o.id
+          return (
+            <button
+              key={o.id}
+              onClick={() => pick(o.id)}
+              disabled={!!busy}
+              className={`relative flex flex-col items-start gap-0.5 rounded-xl border px-3 py-2.5 text-left transition ${
+                selected
+                  ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_0_1px_#3b82f6]'
+                  : 'border-[var(--border-color)] bg-[var(--bg-surface-soft)] hover:bg-[var(--bg-hover)]'
+              }`}
+            >
+              <span className="flex w-full items-center justify-between">
+                <span className="text-lg leading-none">{o.emoji}</span>
+                {busy === o.id ? (
+                  <Loader2 size={13} className="animate-spin text-[var(--text-accent)]" />
+                ) : (
+                  selected && <CheckIcon size={13} className="text-blue-400" />
+                )}
+              </span>
+              <span className="mt-1 text-xs font-semibold text-[var(--text-primary)]">{o.label}</span>
+              <span className="text-[10px] text-[var(--text-faint)]">{o.desc}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 

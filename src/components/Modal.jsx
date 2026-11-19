@@ -6,9 +6,9 @@ export default function Modal({ open, onClose, title, children, wide }) {
   // Portal to <body>: a modal opened from the sidebar would otherwise be trapped inside the
   // sidebar's transformed box and squeezed to its width.
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <div className="anim-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div
-        className={`max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-2xl ${
+        className={`anim-modal max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-2xl ${
           wide ? 'max-w-5xl' : 'max-w-lg'
         }`}
       >

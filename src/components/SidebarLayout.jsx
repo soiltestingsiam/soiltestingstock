@@ -43,7 +43,7 @@ export default function SidebarLayout({ title, heading, subtitle, backTo, childr
               {subtitle && <div className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</div>}
             </div>
           </div>
-          {children}
+          <div className="anim-fade-up">{children}</div>
         </div>
       </div>
     </div>

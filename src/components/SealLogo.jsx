@@ -1,56 +1,64 @@
-import { useId } from 'react'
+import logoUrl from '../assets/sts-logo.png'
 
-const NAVY = '#1B2A6B'
-
-export default function SealLogo({ size = 56 }) {
-  const uid = useId().replace(/[:]/g, '')
-  const topPathId = `seal-top-${uid}`
-  const bottomPathId = `seal-bottom-${uid}`
-
+// The STS company seal, treated as an animated medal.
+//  - animated: breathing glow aura + gentle float + a sheen that sweeps across it + hover tilt
+//  - ring: a rotating gradient halo + two counter-rotating dashed orbit rings (login hero)
+//  - coin: a glossy white disc behind the seal so the blue artwork reads crisply on any theme
+export default function SealLogo({ size = 56, animated = true, ring = false, coin = false }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 200 200" className="shrink-0">
-      <defs>
-        {/* top semicircle, left-to-right over the top, for upright top text */}
-        <path id={topPathId} d="M 22 100 A 78 78 0 1 1 178 100" fill="none" />
-        {/* bottom semicircle, right-to-left under the bottom, for upright bottom text */}
-        <path id={bottomPathId} d="M 178 100 A 78 78 0 1 1 22 100" fill="none" />
-      </defs>
+    <div
+      className={`sts-logo relative shrink-0 ${animated ? 'logo-aura' : ''}`}
+      style={{ width: size, height: size }}
+    >
+      {ring && <span className="sts-halo" aria-hidden="true" />}
+      {coin && <span className="sts-coin" aria-hidden="true" />}
 
-      <circle cx="100" cy="100" r="96" fill="white" stroke={NAVY} strokeWidth="2.5" />
-      <circle cx="100" cy="100" r="88" fill="none" stroke={NAVY} strokeWidth="1.5" />
+      {ring && (
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 100 100"
+          className="pointer-events-none absolute inset-0 z-[1]"
+          aria-hidden="true"
+        >
+          <circle
+            className="spin-slow"
+            cx="50"
+            cy="50"
+            r={48}
+            fill="none"
+            stroke="#3b82f6"
+            strokeWidth="1.2"
+            strokeDasharray="6 7"
+            strokeLinecap="round"
+            opacity="0.7"
+          />
+          <circle
+            className="spin-slow-rev"
+            cx="50"
+            cy="50"
+            r={40}
+            fill="none"
+            stroke="#d4af37"
+            strokeWidth="1"
+            strokeDasharray="2 9"
+            strokeLinecap="round"
+            opacity="0.85"
+          />
+        </svg>
+      )}
 
-      <text fill={NAVY} fontSize="15" fontWeight="700" letterSpacing="1.5" fontFamily="Arial, sans-serif">
-        <textPath href={`#${topPathId}`} startOffset="50%" textAnchor="middle">
-          SOIL TESTING SIAM
-        </textPath>
-      </text>
-      <text fill={NAVY} fontSize="15" fontWeight="700" letterSpacing="1.5" fontFamily="Arial, sans-serif">
-        <textPath href={`#${bottomPathId}`} startOffset="50%" textAnchor="middle">
-          COMPANY LIMITED
-        </textPath>
-      </text>
+      <img
+        src={logoUrl}
+        alt="โลโก้ บริษัท ซอยล์เทสติ้งสยาม จำกัด"
+        width={size}
+        height={size}
+        draggable={false}
+        className={`relative z-[2] h-full w-full select-none object-contain ${animated ? 'float' : ''}`}
+        style={{ filter: 'drop-shadow(0 4px 12px rgba(29, 78, 216, 0.3))' }}
+      />
 
-      <circle cx="22" cy="100" r="6" fill={NAVY} />
-      <circle cx="178" cy="100" r="6" fill={NAVY} />
-
-      <g stroke={NAVY} strokeWidth="1.5" fill="none" opacity="0.85">
-        <path d="M100 38 Q66 100 100 162 Q134 100 100 38 Z" strokeDasharray="3 3" />
-        <ellipse cx="100" cy="100" rx="46" ry="13" strokeDasharray="3 3" />
-        <path d="M100 38 Q84 100 100 162" strokeDasharray="3 3" />
-        <path d="M100 38 Q116 100 100 162" strokeDasharray="3 3" />
-      </g>
-
-      <text
-        x="100"
-        y="120"
-        textAnchor="middle"
-        fontSize="58"
-        fontWeight="800"
-        fill={NAVY}
-        fontFamily="Arial, sans-serif"
-      >
-        STS
-      </text>
-    </svg>
+      {animated && <span className="sts-logo-sheen" aria-hidden="true" />}
+    </div>
   )
 }
