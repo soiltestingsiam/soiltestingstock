@@ -95,6 +95,57 @@ function movementToRow(direction, entry) {
   }
 }
 
+// Supabase (PostgREST) returns at most `max_rows` rows per request — 1000 by default —
+// so a plain select('*') silently drops everything after row 1000 (new receipts then
+// never reach the reports or the stock balances). Load EVERY row, in pages:
+//  - the first request also asks for the exact total;
+//  - the remaining pages are fetched in parallel, sized by what the server actually
+//    returned (so it works whatever max_rows is set to);
+//  - a stable order (entry order for movements) keeps same-day FIFO costing exactly as
+//    before, and rows are de-duplicated by id in case anything shifted mid-load.
+const PAGE_SIZE = 1000
+async function fetchAll(table, orderBy = ['id']) {
+  const ordered = (q) => orderBy.reduce((acc, col) => acc.order(col, { ascending: true }), q)
+  const byId = new Map() // keeps page order, drops any duplicate if rows shifted mid-load
+  const add = (list) => {
+    let added = 0
+    for (const r of list ?? []) {
+      if (!byId.has(r.id)) {
+        byId.set(r.id, r)
+        added += 1
+      }
+    }
+    return added
+  }
+  const first = await ordered(supabase.from(table).select('*', { count: 'exact' })).range(0, PAGE_SIZE - 1)
+  if (first.error) return { data: null, error: first.error }
+  add(first.data)
+  const step = first.data?.length ?? 0
+  const total = first.count
+  if (step && total != null && total > step) {
+    const starts = []
+    for (let start = step; start < total; start += step) starts.push(start)
+    const pages = await Promise.all(starts.map((start) => ordered(supabase.from(table).select('*')).range(start, start + step - 1)))
+    for (const page of pages) {
+      if (page.error) return { data: null, error: page.error }
+      add(page.data)
+    }
+  } else if (step && total == null) {
+    // no total available: keep reading until a short page (or a page with nothing new)
+    for (let start = step; start < 5_000_000; start += step) {
+      const page = await ordered(supabase.from(table).select('*')).range(start, start + step - 1)
+      if (page.error) return { data: null, error: page.error }
+      const added = add(page.data)
+      if (!page.data || page.data.length < step || added === 0) break
+    }
+  }
+  return { data: [...byId.values()], error: null }
+}
+
+const loadProducts = () => fetchAll('products', ['id'])
+const loadMovements = () => fetchAll('stock_movements', ['created_at', 'id'])
+const loadBatches = () => fetchAll('import_batches', ['imported_at', 'id'])
+
 function sortProducts(products) {
   return [...products].sort((a, b) => thaiCompare(a.code, b.code))
 }
@@ -125,9 +176,9 @@ export const useStore = create((set, get) => ({
     const gen = loadGeneration
     try {
       const [{ data: products, error: e1 }, { data: movements, error: e2 }, { data: batches, error: e3 }] = await Promise.all([
-        supabase.from('products').select('*'),
-        supabase.from('stock_movements').select('*'),
-        supabase.from('import_batches').select('*'),
+        loadProducts(),
+        loadMovements(),
+        loadBatches(),
       ])
       if (e1) throw e1
       if (e2) throw e2
@@ -169,12 +220,12 @@ export const useStore = create((set, get) => ({
   },
 
   refetchProducts: async () => {
-    const { data, error } = await supabase.from('products').select('*')
+    const { data, error } = await loadProducts()
     if (error) return
     set({ products: sortProducts((data ?? []).map(rowToProduct)) })
   },
   refetchMovements: async () => {
-    const { data, error } = await supabase.from('stock_movements').select('*')
+    const { data, error } = await loadMovements()
     if (error) return
     set({
       stockIns: (data ?? []).filter((r) => r.direction === 'in').map(rowToMovement),
@@ -182,7 +233,7 @@ export const useStore = create((set, get) => ({
     })
   },
   refetchBatches: async () => {
-    const { data, error } = await supabase.from('import_batches').select('*')
+    const { data, error } = await loadBatches()
     if (error) return
     set({ importBatches: (data ?? []).map(rowToBatch) })
   },
