@@ -12,6 +12,7 @@ import Login from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
 import UpdatePrompt from './components/UpdatePrompt'
 import FestivalLayer from './components/FestivalLayer'
+import FestivalWelcome from './components/FestivalWelcome'
 import { useFestivalStore } from './store/useFestivalStore'
 import { useThemeStore } from './store/useThemeStore'
 import { useStore } from './store/useStore'
@@ -148,6 +149,8 @@ export default function App() {
     </Routes>
     {/* seasonal decorations (ลอยกระทง / ฮาโลวีน / ...) on every page */}
     <FestivalLayer />
+    {/* celebratory "which festival" popup shown once after each fresh login */}
+    <FestivalWelcome />
     {/* "มีเวอร์ชันใหม่" popup — on every page, including login */}
     <UpdatePrompt />
     </>

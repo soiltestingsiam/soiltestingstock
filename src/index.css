@@ -373,6 +373,14 @@ button:active:not(:disabled) { transform: scale(.97) }
 :root[data-festival='newyear'] { --bg-page: #0b0b20; --bg-card: #16163a; --bg-card-alt: #1c1c46; --text-accent: #ffd27f; --fes-glow: #ffcf6a; }
 :root[data-theme='light'][data-festival='newyear'] { --bg-page: #f0effb; --bg-card: #fbfbff; --bg-card-alt: #f2f1fb; --fes-glow: #b8860b; }
 
+/* ตรุษจีน — แดง/ทอง */
+:root[data-festival='chinesenewyear'] { --bg-page: #260909; --bg-card: #360f0f; --bg-card-alt: #431414; --text-accent: #ffd24d; --fes-glow: #ff5a3c; }
+:root[data-theme='light'][data-festival='chinesenewyear'] { --bg-page: #fcece7; --bg-card: #fff6f2; --bg-card-alt: #fbeae3; --fes-glow: #c0392b; }
+
+/* วาเลนไทน์ — ชมพู/แดง */
+:root[data-festival='valentine'] { --bg-page: #1e0a16; --bg-card: #2c1021; --bg-card-alt: #371328; --text-accent: #ff9fc3; --fes-glow: #ff5a8a; }
+:root[data-theme='light'][data-festival='valentine'] { --bg-page: #fdeef3; --bg-card: #fff7fb; --bg-card-alt: #fbeaf1; --fes-glow: #e0417a; }
+
 /* ---- the fixed decoration layer ---- */
 .fes-layer { position: fixed; inset: 0; z-index: 45; overflow: hidden; pointer-events: none; opacity: .92 }
 .fes-layer.fes-behind { z-index: 1; opacity: .48 }
@@ -398,6 +406,15 @@ button:active:not(:disabled) { transform: scale(.97) }
   radial-gradient(100% 60% at 50% -5%, rgba(255,210,120,.22), transparent 60%),
   radial-gradient(90% 50% at 15% 100%, rgba(99,102,241,.22), transparent 60%),
   radial-gradient(90% 50% at 85% 100%, rgba(236,72,153,.2), transparent 60%); }
+.fes-vignette.chinesenewyear { background:
+  radial-gradient(110% 60% at 50% -8%, rgba(255,90,60,.3), transparent 60%),
+  radial-gradient(90% 55% at 12% 0%, rgba(255,200,80,.24), transparent 60%),
+  radial-gradient(90% 55% at 88% 0%, rgba(255,200,80,.24), transparent 60%),
+  radial-gradient(100% 50% at 50% 115%, rgba(200,30,20,.22), transparent 60%); }
+.fes-vignette.valentine { background:
+  radial-gradient(110% 60% at 50% -8%, rgba(255,120,170,.28), transparent 60%),
+  radial-gradient(90% 55% at 15% 110%, rgba(255,90,140,.24), transparent 60%),
+  radial-gradient(90% 55% at 85% 110%, rgba(255,150,190,.22), transparent 60%); }
 
 /* ---- keyframes ---- */
 @keyframes fes-rise { 0% { transform: translateY(0) rotate(0); opacity: 0 } 8% { opacity: .95 } 85% { opacity: .95 } 100% { transform: translateY(-112vh) rotate(6deg); opacity: 0 } }
@@ -467,9 +484,109 @@ button:active:not(:disabled) { transform: scale(.97) }
 /* ---- ripple (songkran) ---- */
 .fes-ripple { position: absolute; bottom: 6vh; width: 60px; height: 20px; border: 2px solid rgba(150,230,255,.6); border-radius: 50%; animation: fes-ripple 3s ease-out infinite }
 
+/* ---- valentine + ตรุษจีน ---- */
+@keyframes fes-swing { 0%, 100% { transform: rotate(-7deg) } 50% { transform: rotate(7deg) } }
+@keyframes fes-petal-fall { 0% { transform: translateY(-8vh) translateX(0) rotate(0); opacity: 0 } 10% { opacity: .9 } 100% { transform: translateY(112vh) translateX(70px) rotate(380deg); opacity: .3 } }
+@keyframes fes-confetti { 0% { transform: translateY(-6vh) rotate(0); opacity: 0 } 10% { opacity: 1 } 100% { transform: translateY(112vh) rotate(560deg); opacity: .4 } }
+
+/* floating heart (rises like a lantern) */
+.fes-heart { position: absolute; bottom: -8vh; animation: fes-rise linear infinite; will-change: transform }
+.fes-heart > span { display: block; animation: fes-sway ease-in-out infinite }
+.fes-heart svg { display: block; filter: drop-shadow(0 0 9px rgba(255,90,140,.7)); animation: fes-flicker 1.9s ease-in-out infinite }
+
+/* rose petal (falls + spins) */
+.fes-petal { position: absolute; top: -3vh; width: 15px; height: 11px; border-radius: 50% 50% 50% 50% / 72% 72% 28% 28%; background: radial-gradient(circle at 40% 30%, #ffd3e2, #ff7aa8 68%, #e85b95); animation: fes-petal-fall linear infinite; will-change: transform }
+
+/* chinese hanging lantern (swings from the top) */
+.fes-clantern { position: absolute; top: -3px; transform-origin: top center; animation: fes-swing ease-in-out infinite; will-change: transform }
+.fes-clantern svg { display: block; filter: drop-shadow(0 4px 12px rgba(255,60,30,.45)) }
+
+/* gold confetti (ตรุษจีน) */
+.fes-confetti { position: absolute; top: -4vh; border-radius: 1px; animation: fes-confetti linear infinite; will-change: transform }
+
+/* ---- welcome popup (shown once after login: "which festival") ---- */
+@keyframes fes-welcome-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes fes-welcome-out { from { opacity: 1 } to { opacity: 0 } }
+@keyframes fes-welcome-card-in { 0% { opacity: 0; transform: translateY(26px) scale(.92) } 60% { transform: translateY(-4px) scale(1.01) } 100% { opacity: 1; transform: none } }
+@keyframes fes-welcome-card-out { from { opacity: 1; transform: none } to { opacity: 0; transform: translateY(14px) scale(.96) } }
+@keyframes fes-welcome-emoji { 0% { transform: scale(0) rotate(-24deg) } 55% { transform: scale(1.25) rotate(8deg) } 100% { transform: scale(1) rotate(0) } }
+@keyframes fes-welcome-emoji-float { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-7px) } }
+@keyframes fes-welcome-bar { from { transform: scaleX(1) } to { transform: scaleX(0) } }
+@keyframes fes-welcome-ring { 0% { transform: scale(.6); opacity: .55 } 100% { transform: scale(1.6); opacity: 0 } }
+
+.fes-welcome-overlay {
+  position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center;
+  padding: 20px; background: rgba(6, 10, 22, .55); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+  animation: fes-welcome-in .28s ease both;
+}
+.fes-welcome-overlay.leaving { animation: fes-welcome-out .3s ease both }
+
+.fes-welcome-card {
+  position: relative; width: min(92vw, 360px); padding: 30px 26px 22px; text-align: center;
+  border-radius: 24px; border: 1px solid rgba(255, 255, 255, .14); overflow: hidden;
+  background:
+    radial-gradient(130% 90% at 50% -10%, color-mix(in srgb, var(--fw-from) 26%, transparent), transparent 62%),
+    linear-gradient(160deg, rgba(24, 28, 46, .96), rgba(12, 16, 30, .96));
+  box-shadow: 0 24px 60px -16px rgba(0, 0, 0, .6), 0 0 44px -10px var(--fw-glow);
+  animation: fes-welcome-card-in .5s cubic-bezier(.22, 1.1, .36, 1) both;
+}
+.fes-welcome-card.leaving { animation: fes-welcome-card-out .3s ease both }
+/* glowing top accent bar in the festival colours */
+.fes-welcome-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, var(--fw-from), var(--fw-to));
+}
+
+.fes-welcome-close {
+  position: absolute; top: 12px; right: 12px; display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 50%; color: rgba(255, 255, 255, .6);
+  background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1); transition: all .15s;
+}
+.fes-welcome-close:hover { color: #fff; background: rgba(255, 255, 255, .14) }
+
+.fes-welcome-emoji {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 88px; height: 88px; margin: 0 auto 14px; font-size: 46px; line-height: 1; border-radius: 50%;
+  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--fw-from) 42%, transparent), transparent 70%);
+  animation: fes-welcome-emoji .6s cubic-bezier(.22, 1.4, .36, 1) both;
+}
+.fes-welcome-emoji > span { display: inline-block; animation: fes-welcome-emoji-float 3s ease-in-out .6s infinite }
+/* expanding halo rings behind the emoji */
+.fes-welcome-emoji::before, .fes-welcome-emoji::after {
+  content: ''; position: absolute; inset: 6px; border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--fw-from) 70%, transparent);
+  animation: fes-welcome-ring 2.4s ease-out infinite;
+}
+.fes-welcome-emoji::after { animation-delay: 1.2s }
+
+.fes-welcome-kicker {
+  font-size: 11px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--fw-from) 72%, #ffffff);
+}
+.fes-welcome-title {
+  margin-top: 4px; font-size: 24px; font-weight: 800; line-height: 1.15;
+  background: linear-gradient(90deg, var(--fw-from), var(--fw-to));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+}
+.fes-welcome-greeting { margin-top: 10px; font-size: 15px; font-weight: 600; color: #fff }
+.fes-welcome-desc { margin-top: 4px; font-size: 13px; color: rgba(255, 255, 255, .6) }
+.fes-welcome-hint { margin-top: 16px; font-size: 11px; color: rgba(255, 255, 255, .38) }
+
+.fes-welcome-bar { margin-top: 14px; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .1); overflow: hidden }
+.fes-welcome-bar > span {
+  display: block; height: 100%; border-radius: 3px; transform-origin: left;
+  background: linear-gradient(90deg, var(--fw-from), var(--fw-to));
+  animation: fes-welcome-bar linear forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fes-lantern, .fes-lantern > span, .fes-lantern i, .fes-krathong, .fes-krathong > span,
   .fes-krathong .flame, .fes-snow, .fes-drop, .fes-twinkle, .fes-bat, .fes-bat svg,
-  .fes-float, .fes-firework, .fes-ripple, .fes-moon { animation: none !important }
+  .fes-float, .fes-firework, .fes-ripple, .fes-moon,
+  .fes-heart, .fes-heart > span, .fes-heart svg, .fes-petal, .fes-clantern, .fes-confetti { animation: none !important }
   .fes-layer { opacity: .5 }
+  .fes-welcome-overlay, .fes-welcome-card, .fes-welcome-emoji, .fes-welcome-emoji > span { animation: none !important }
+  .fes-welcome-emoji::before, .fes-welcome-emoji::after { animation: none !important; opacity: 0 }
+  .fes-welcome-card { opacity: 1 !important; transform: none !important }
+  /* keep the auto-dismiss countdown visible so the popup still closes on its own */
 }

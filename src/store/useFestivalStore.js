@@ -49,6 +49,10 @@ export const useFestivalStore = create((set, get) => ({
   enabled: readEnabled(), // per-device show/hide
   active: applyAttr(readLocalMode(), readEnabled()), // what is actually shown
   loaded: false,
+  welcomeNonce: 0, // bumped on each fresh login → the welcome popup reads it
+
+  // Fired right after a successful login so the welcome popup shows the active festival.
+  announce: () => set((s) => ({ welcomeNonce: s.welcomeNonce + 1 })),
 
   // apply the current mode + enabled to the <html> attribute and cache the mode
   _reapply: (mode = get().mode) => {

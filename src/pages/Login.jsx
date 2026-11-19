@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { Lock, User, Eye, EyeOff, LogIn, UserPlus, Loader2, FlaskConical, Award, ShieldCheck, Boxes, ChevronRight } from 'lucide-react'
 import SealLogo from '../components/SealLogo'
 import { useAuthStore } from '../store/useAuthStore'
+import { useFestivalStore } from '../store/useFestivalStore'
 
 // A branded, self-contained login experience: a deep-blue hero that auto-plays the
 // company story (chapters fade through on their own), with a readable dark-glass sign-in
@@ -71,6 +72,7 @@ export default function Login() {
       const result = await login(username, password)
       setBusy(false)
       if (!result.success) return setError(result.message)
+      useFestivalStore.getState().announce() // greet with the active festival
       navigate('/', { replace: true })
     } else {
       if (password !== confirmPassword) return setError('รหัสผ่านไม่ตรงกัน')
