@@ -11,6 +11,8 @@ import AuditLog from './pages/AuditLog'
 import Login from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
 import UpdatePrompt from './components/UpdatePrompt'
+import FestivalLayer from './components/FestivalLayer'
+import { useFestivalStore } from './store/useFestivalStore'
 import { useThemeStore } from './store/useThemeStore'
 import { useStore } from './store/useStore'
 import { useAuthStore, isAdminState } from './store/useAuthStore'
@@ -60,6 +62,7 @@ export default function App() {
 
   useEffect(() => {
     useAuthStore.getState().init()
+    useFestivalStore.getState().init()
   }, [])
 
   useEffect(() => {
@@ -143,6 +146,8 @@ export default function App() {
         }
       />
     </Routes>
+    {/* seasonal decorations (ลอยกระทง / ฮาโลวีน / ...) on every page */}
+    <FestivalLayer />
     {/* "มีเวอร์ชันใหม่" popup — on every page, including login */}
     <UpdatePrompt />
     </>
