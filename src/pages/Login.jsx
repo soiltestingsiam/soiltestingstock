@@ -5,6 +5,27 @@ import SealLogo from '../components/SealLogo'
 import { useAuthStore } from '../store/useAuthStore'
 import { inputClass } from '../components/FormField'
 
+// Twinkling specks drifting behind the login card — pure decoration.
+const SPARKLES = [
+  { top: '14%', left: '12%', size: 6, delay: '0s' },
+  { top: '22%', left: '82%', size: 4, delay: '.6s' },
+  { top: '68%', left: '8%', size: 5, delay: '1.1s' },
+  { top: '78%', left: '88%', size: 7, delay: '.3s' },
+  { top: '40%', left: '92%', size: 3, delay: '1.6s' },
+  { top: '86%', left: '46%', size: 4, delay: '.9s' },
+  { top: '10%', left: '54%', size: 3, delay: '2.1s' },
+  { top: '56%', left: '18%', size: 4, delay: '1.4s' },
+]
+function SparkleField() {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[1]" aria-hidden="true">
+      {SPARKLES.map((s, i) => (
+        <span className="sparkle" key={i} style={{ top: s.top, left: s.left, width: s.size, height: s.size, animationDelay: s.delay }} />
+      ))}
+    </div>
+  )
+}
+
 export default function Login() {
   const navigate = useNavigate()
   const login = useAuthStore((s) => s.login)
@@ -70,19 +91,31 @@ export default function Login() {
   if (alreadyIn) return <Navigate to="/" replace />
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--bg-page)] px-4">
-      <div className="w-full max-w-md">
-        <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <SealLogo size={64} />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--bg-page)] px-4">
+      {/* animated aurora backdrop */}
+      <div className="aurora" aria-hidden="true">
+        <span style={{ width: 460, height: 460, top: '-12%', left: '-8%', background: 'radial-gradient(circle, #3b82f6, transparent 60%)' }} />
+        <span style={{ width: 420, height: 420, bottom: '-14%', right: '-6%', background: 'radial-gradient(circle, #6366f1, transparent 60%)', animationDelay: '-7s' }} />
+        <span style={{ width: 360, height: 360, top: '38%', right: '22%', background: 'radial-gradient(circle, #d4af37, transparent 60%)', animationDelay: '-12s', opacity: 0.35 }} />
+      </div>
+      <SparkleField />
+
+      <div className="relative z-10 w-full max-w-md">
+        <div className="mb-8 flex flex-col items-center gap-4 text-center anim-fade-up">
+          <SealLogo size={116} ring coin />
           <div>
-            <div className="text-2xl font-extrabold tracking-wide text-[var(--text-primary)]">STS</div>
-            <div className="-mt-1 text-xs font-medium tracking-[0.2em] text-[var(--text-accent)]">
+            <div className="text-5xl font-extrabold tracking-wider text-shine">STS</div>
+            <div className="mt-1.5 text-xs font-semibold tracking-[0.3em] text-[var(--text-accent)]">
               SOIL TESTING SIAM
+            </div>
+            <div className="mt-1 text-[10px] font-medium tracking-[0.25em] text-[var(--text-faint)]">
+              INVENTORY MANAGEMENT SYSTEM
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-7 shadow-card">
+        <div className="glow-border on anim-fade-up rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-7 shadow-card [animation-delay:120ms]"
+          style={{ boxShadow: '0 30px 70px -28px var(--shadow-color)' }}>
           <div className="mb-6 flex rounded-lg border border-[var(--border-color)] bg-[var(--bg-input)] p-1">
             <button
               type="button"
@@ -179,7 +212,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={busy}
-              className="mt-1 flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-wait disabled:opacity-70"
+              className="btn-shine mt-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition hover:from-blue-500 hover:to-indigo-500 hover:shadow-blue-500/40 disabled:cursor-wait disabled:opacity-70"
             >
               {busy ? <Loader2 size={16} className="animate-spin" /> : mode === 'login' ? <LogIn size={16} /> : <UserPlus size={16} />}
               {mode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}

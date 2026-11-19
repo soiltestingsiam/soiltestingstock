@@ -191,3 +191,157 @@ div.jump-highlight {
     outline-color: rgba(250, 204, 21, 0.35);
   }
 }
+
+/* ======================================================================
+   ✨ STS premium animations — centralized, theme-aware, GPU-friendly ✨
+   ====================================================================== */
+@keyframes sts-float { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
+@keyframes sts-float-sm { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-3px) } }
+@keyframes sts-spin { to { transform: rotate(360deg) } }
+@keyframes sts-spin-rev { to { transform: rotate(-360deg) } }
+@keyframes sts-pulse-glow { 0%, 100% { opacity: .45; transform: scale(.94) } 50% { opacity: 1; transform: scale(1.08) } }
+@keyframes sts-fade-up { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: none } }
+@keyframes sts-fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes sts-pop { from { opacity: 0; transform: scale(.9) } to { opacity: 1; transform: scale(1) } }
+@keyframes sts-pop-modal { from { opacity: 0; transform: translateY(14px) scale(.96) } to { opacity: 1; transform: none } }
+@keyframes sts-sheen { 0% { transform: translateX(-140%) skewX(-18deg) } 100% { transform: translateX(260%) skewX(-18deg) } }
+@keyframes sts-aurora { 0% { transform: translate(0, 0) scale(1) } 33% { transform: translate(7%, -5%) scale(1.18) } 66% { transform: translate(-6%, 6%) scale(.9) } 100% { transform: translate(0, 0) scale(1) } }
+@keyframes sts-gradient-text { to { background-position: 200% center } }
+@keyframes sts-ring-dash { to { stroke-dashoffset: -1000 } }
+
+/* entrance helpers */
+.anim-fade-up { animation: sts-fade-up .6s cubic-bezier(.2, .7, .2, 1) both }
+.anim-fade-in { animation: sts-fade-in .8s ease both }
+.anim-pop { animation: sts-pop .5s cubic-bezier(.2, .8, .2, 1) both }
+.anim-modal { animation: sts-pop-modal .32s cubic-bezier(.2, .8, .2, 1) both }
+/* stagger children: each child fades up a beat after the last */
+.stagger > * { animation: sts-fade-up .6s cubic-bezier(.2, .7, .2, 1) both }
+.stagger > *:nth-child(1) { animation-delay: .04s }
+.stagger > *:nth-child(2) { animation-delay: .12s }
+.stagger > *:nth-child(3) { animation-delay: .20s }
+.stagger > *:nth-child(4) { animation-delay: .28s }
+.stagger > *:nth-child(5) { animation-delay: .36s }
+.stagger > *:nth-child(6) { animation-delay: .44s }
+.stagger > *:nth-child(7) { animation-delay: .52s }
+.stagger > *:nth-child(8) { animation-delay: .60s }
+
+/* continuous motion */
+.float { animation: sts-float 4s ease-in-out infinite }
+.float-sm { animation: sts-float-sm 4.5s ease-in-out infinite }
+.spin-slow { animation: sts-spin 18s linear infinite; transform-origin: center }
+.spin-slow-rev { animation: sts-spin-rev 24s linear infinite; transform-origin: center }
+
+/* shimmering gradient text (titles) */
+.text-shine {
+  background: linear-gradient(100deg, var(--text-primary) 0%, var(--text-accent) 30%, #d4af37 50%, var(--text-accent) 70%, var(--text-primary) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  animation: sts-gradient-text 5s linear infinite;
+}
+
+/* glossy sweep over buttons on hover */
+.btn-shine { position: relative; overflow: hidden }
+.btn-shine::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .5), transparent);
+  transform: translateX(-140%) skewX(-18deg); pointer-events: none;
+}
+.btn-shine:hover::after { animation: sts-sheen .85s ease }
+
+/* lift + glow card */
+.card-fancy { transition: transform .28s cubic-bezier(.2, .8, .2, 1), box-shadow .28s ease, border-color .28s ease }
+.card-fancy:hover { transform: translateY(-6px); box-shadow: 0 26px 55px -20px var(--shadow-color) }
+
+/* breathing glow aura behind the logo */
+.logo-aura { position: relative; isolation: isolate }
+.logo-aura::before {
+  content: ''; position: absolute; inset: -24%; z-index: -1; border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, .55), rgba(99, 102, 241, .22) 55%, transparent 70%);
+  animation: sts-pulse-glow 3.4s ease-in-out infinite;
+}
+
+/* animated aurora background (login / dashboard hero) */
+.aurora { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0 }
+.aurora span {
+  position: absolute; display: block; border-radius: 50%;
+  filter: blur(72px); opacity: .5; will-change: transform;
+  animation: sts-aurora 20s ease-in-out infinite;
+}
+:root[data-theme='light'] .aurora span { opacity: .4 }
+
+/* tactile press feedback on every button, plus smooth transitions */
+button { transition-property: transform, background-color, border-color, color, box-shadow, opacity; transition-duration: 160ms; transition-timing-function: ease }
+button:active:not(:disabled) { transform: scale(.97) }
+
+/* ---------- ✨ premium extras (logo medal, glow borders, sparkles) ✨ ---------- */
+/* animatable angle for conic gradients (modern browsers; degrades to a static ring) */
+@property --sts-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+@keyframes sts-rotate-angle { to { --sts-angle: 360deg } }
+@keyframes sts-sheen-auto { 0%, 55% { transform: translateX(-180%) skewX(-18deg) } 100% { transform: translateX(320%) skewX(-18deg) } }
+@keyframes sts-sparkle { 0%, 100% { opacity: 0; transform: translateY(2px) scale(.4) } 50% { opacity: 1; transform: translateY(-8px) scale(1) } }
+@keyframes sts-float-icon { 0%, 100% { transform: translateY(0) rotate(0) } 50% { transform: translateY(-7px) rotate(1.6deg) } }
+@keyframes sts-twinkle { 0%, 100% { opacity: .25 } 50% { opacity: 1 } }
+
+/* vivid metallic shimmer title — reads on both themes (overrides the var-based fallback) */
+.text-shine {
+  background-image: linear-gradient(100deg, #eaf1ff 0%, #7fb0fb 26%, #ffd76a 50%, #a5c6ff 74%, #ffffff 100%);
+}
+:root[data-theme='light'] .text-shine {
+  background-image: linear-gradient(100deg, #1e3a8a 0%, #2563eb 26%, #c08a1e 50%, #4338ca 74%, #1e3a8a 100%);
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+
+/* rotating gradient halo border — on hover, or always with .on */
+.glow-border { position: relative; isolation: isolate }
+.glow-border::before {
+  content: ''; position: absolute; inset: -1.5px; border-radius: inherit; padding: 1.6px; z-index: 0;
+  background: conic-gradient(from var(--sts-angle), #3b82f6, #22d3ee, #6366f1, #ffd76a, #3b82f6);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude; animation: sts-rotate-angle 6s linear infinite;
+  opacity: 0; transition: opacity .35s ease;
+}
+.glow-border:hover::before { opacity: 1 }
+.glow-border.on::before { opacity: .6; animation-duration: 10s }
+.glow-border > * { position: relative; z-index: 1 }
+
+/* floating dashboard / hero icons */
+.float-icon { animation: sts-float-icon 5s ease-in-out infinite }
+
+/* twinkling sparkle dots (login) */
+.sparkle { position: absolute; border-radius: 50%; background: radial-gradient(circle, #fff, rgba(255,255,255,0) 70%); animation: sts-sparkle 3.6s ease-in-out infinite; pointer-events: none }
+
+/* the STS seal as an animated medal */
+.sts-logo { isolation: isolate }
+.sts-logo img { transition: transform .45s cubic-bezier(.2, .8, .2, 1), filter .45s ease }
+.sts-logo:hover img { transform: scale(1.07) rotate(-3deg) }
+.sts-halo {
+  position: absolute; inset: -12%; border-radius: 50%; z-index: 0; pointer-events: none;
+  background: conic-gradient(from var(--sts-angle), rgba(59,130,246,0) 0deg, rgba(59,130,246,.85) 70deg, rgba(255,215,106,.9) 130deg, rgba(99,102,241,0) 210deg);
+  filter: blur(5px); opacity: .85; animation: sts-rotate-angle 7s linear infinite;
+}
+.sts-coin {
+  position: absolute; inset: 5%; border-radius: 50%; z-index: 0; pointer-events: none;
+  background: radial-gradient(circle at 38% 30%, #ffffff, #eef3fd 62%, #d8e2f5);
+  box-shadow: inset 0 2px 5px rgba(255,255,255,.9), inset 0 -3px 8px rgba(30,64,175,.18), 0 10px 26px rgba(30,64,175,.3);
+}
+.sts-logo-sheen { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; pointer-events: none; z-index: 3 }
+.sts-logo-sheen::before {
+  content: ''; position: absolute; top: -25%; bottom: -25%; left: 0; width: 42%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.8), transparent);
+  transform: translateX(-180%) skewX(-18deg); animation: sts-sheen-auto 5.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-fade-up, .anim-fade-in, .anim-pop, .anim-modal, .stagger > *,
+  .float, .float-sm, .spin-slow, .spin-slow-rev, .text-shine, .aurora span,
+  .float-icon, .sparkle, .sts-halo, .sts-logo-sheen::before, .glow-border::before {
+    animation: none !important;
+  }
+  .sts-halo, .sparkle { opacity: 0 !important }
+  .glow-border::before { opacity: 0 !important }
+  .anim-fade-up, .anim-pop, .anim-modal, .stagger > * { opacity: 1 !important; transform: none !important }
+  .logo-aura::before { animation: none !important }
+  .text-shine { -webkit-text-fill-color: var(--text-primary); color: var(--text-primary) }
+}

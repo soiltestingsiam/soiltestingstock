@@ -30,9 +30,9 @@ export default function TopBar() {
 
       <div className="relative flex items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-5 lg:px-10">
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-          <SealLogo size={44} />
+          <SealLogo size={44} coin />
           <div className="min-w-0">
-            <div className="text-2xl font-extrabold tracking-wide text-sky-400 sm:text-3xl">STS</div>
+            <div className="text-2xl font-extrabold tracking-wide text-shine sm:text-3xl">STS</div>
             <div className="-mt-1 truncate text-[10px] font-medium tracking-[0.15em] text-[var(--text-faint)] sm:text-[11px] sm:tracking-[0.2em]">
               SOIL TESTING SIAM
             </div>

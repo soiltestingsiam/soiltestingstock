@@ -57,7 +57,7 @@ export default function Sidebar({ mobileOpen = false, onClose = () => {} }) {
         }`}
       >
         <div className="flex items-center gap-3 border-b border-[var(--border-color)] px-5 py-5">
-          <SealLogo size={40} />
+          <SealLogo size={40} coin />
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-bold text-[var(--text-primary)]">Inventory System</div>
             <div className="truncate text-[10px] font-medium tracking-wide text-[var(--text-faint)]">
@@ -74,7 +74,7 @@ export default function Sidebar({ mobileOpen = false, onClose = () => {} }) {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4">
-          <ul className="flex flex-col gap-1">
+          <ul className="stagger flex flex-col gap-1">
             {NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin).map((item) => (
               <li key={item.to}>
                 <NavLink
@@ -82,14 +82,14 @@ export default function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                   end={item.end}
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                    `group relative flex items-center gap-3 overflow-hidden rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:translate-x-1 ${
                       isActive
-                        ? 'bg-[var(--bg-hover-strong)] text-[var(--text-primary)]'
+                        ? 'bg-gradient-to-r from-blue-600/20 to-transparent text-[var(--text-primary)] shadow-[inset_3px_0_0_0_#3b82f6]'
                         : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
                     }`
                   }
                 >
-                  <item.icon size={17} />
+                  <item.icon size={17} className="transition-transform duration-200 group-hover:scale-110" />
                   {item.label}
                 </NavLink>
               </li>
