@@ -504,10 +504,89 @@ button:active:not(:disabled) { transform: scale(.97) }
 /* gold confetti (ตรุษจีน) */
 .fes-confetti { position: absolute; top: -4vh; border-radius: 1px; animation: fes-confetti linear infinite; will-change: transform }
 
+/* ---- welcome popup (shown once after login: "which festival") ---- */
+@keyframes fes-welcome-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes fes-welcome-out { from { opacity: 1 } to { opacity: 0 } }
+@keyframes fes-welcome-card-in { 0% { opacity: 0; transform: translateY(26px) scale(.92) } 60% { transform: translateY(-4px) scale(1.01) } 100% { opacity: 1; transform: none } }
+@keyframes fes-welcome-card-out { from { opacity: 1; transform: none } to { opacity: 0; transform: translateY(14px) scale(.96) } }
+@keyframes fes-welcome-emoji { 0% { transform: scale(0) rotate(-24deg) } 55% { transform: scale(1.25) rotate(8deg) } 100% { transform: scale(1) rotate(0) } }
+@keyframes fes-welcome-emoji-float { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-7px) } }
+@keyframes fes-welcome-bar { from { transform: scaleX(1) } to { transform: scaleX(0) } }
+@keyframes fes-welcome-ring { 0% { transform: scale(.6); opacity: .55 } 100% { transform: scale(1.6); opacity: 0 } }
+
+.fes-welcome-overlay {
+  position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center;
+  padding: 20px; background: rgba(6, 10, 22, .55); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+  animation: fes-welcome-in .28s ease both;
+}
+.fes-welcome-overlay.leaving { animation: fes-welcome-out .3s ease both }
+
+.fes-welcome-card {
+  position: relative; width: min(92vw, 360px); padding: 30px 26px 22px; text-align: center;
+  border-radius: 24px; border: 1px solid rgba(255, 255, 255, .14); overflow: hidden;
+  background:
+    radial-gradient(130% 90% at 50% -10%, color-mix(in srgb, var(--fw-from) 26%, transparent), transparent 62%),
+    linear-gradient(160deg, rgba(24, 28, 46, .96), rgba(12, 16, 30, .96));
+  box-shadow: 0 24px 60px -16px rgba(0, 0, 0, .6), 0 0 44px -10px var(--fw-glow);
+  animation: fes-welcome-card-in .5s cubic-bezier(.22, 1.1, .36, 1) both;
+}
+.fes-welcome-card.leaving { animation: fes-welcome-card-out .3s ease both }
+/* glowing top accent bar in the festival colours */
+.fes-welcome-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, var(--fw-from), var(--fw-to));
+}
+
+.fes-welcome-close {
+  position: absolute; top: 12px; right: 12px; display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 50%; color: rgba(255, 255, 255, .6);
+  background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1); transition: all .15s;
+}
+.fes-welcome-close:hover { color: #fff; background: rgba(255, 255, 255, .14) }
+
+.fes-welcome-emoji {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 88px; height: 88px; margin: 0 auto 14px; font-size: 46px; line-height: 1; border-radius: 50%;
+  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--fw-from) 42%, transparent), transparent 70%);
+  animation: fes-welcome-emoji .6s cubic-bezier(.22, 1.4, .36, 1) both;
+}
+.fes-welcome-emoji > span { display: inline-block; animation: fes-welcome-emoji-float 3s ease-in-out .6s infinite }
+/* expanding halo rings behind the emoji */
+.fes-welcome-emoji::before, .fes-welcome-emoji::after {
+  content: ''; position: absolute; inset: 6px; border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--fw-from) 70%, transparent);
+  animation: fes-welcome-ring 2.4s ease-out infinite;
+}
+.fes-welcome-emoji::after { animation-delay: 1.2s }
+
+.fes-welcome-kicker {
+  font-size: 11px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--fw-from) 72%, #ffffff);
+}
+.fes-welcome-title {
+  margin-top: 4px; font-size: 24px; font-weight: 800; line-height: 1.15;
+  background: linear-gradient(90deg, var(--fw-from), var(--fw-to));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+}
+.fes-welcome-greeting { margin-top: 10px; font-size: 15px; font-weight: 600; color: #fff }
+.fes-welcome-desc { margin-top: 4px; font-size: 13px; color: rgba(255, 255, 255, .6) }
+.fes-welcome-hint { margin-top: 16px; font-size: 11px; color: rgba(255, 255, 255, .38) }
+
+.fes-welcome-bar { margin-top: 14px; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .1); overflow: hidden }
+.fes-welcome-bar > span {
+  display: block; height: 100%; border-radius: 3px; transform-origin: left;
+  background: linear-gradient(90deg, var(--fw-from), var(--fw-to));
+  animation: fes-welcome-bar linear forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fes-lantern, .fes-lantern > span, .fes-lantern i, .fes-krathong, .fes-krathong > span,
   .fes-krathong .flame, .fes-snow, .fes-drop, .fes-twinkle, .fes-bat, .fes-bat svg,
   .fes-float, .fes-firework, .fes-ripple, .fes-moon,
   .fes-heart, .fes-heart > span, .fes-heart svg, .fes-petal, .fes-clantern, .fes-confetti { animation: none !important }
   .fes-layer { opacity: .5 }
+  .fes-welcome-overlay, .fes-welcome-card, .fes-welcome-emoji, .fes-welcome-emoji > span { animation: none !important }
+  .fes-welcome-emoji::before, .fes-welcome-emoji::after { animation: none !important; opacity: 0 }
+  .fes-welcome-card { opacity: 1 !important; transform: none !important }
+  /* keep the auto-dismiss countdown visible so the popup still closes on its own */
 }
