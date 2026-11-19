@@ -220,12 +220,107 @@ function NewYear({ subtle }) {
   )
 }
 
+function Heart({ style }) {
+  return (
+    <div className="fes-heart" style={style}>
+      <span style={{ animationDuration: `${4 + rand(1) * 3}s` }}>
+        <svg width="26" height="24" viewBox="0 0 26 24">
+          <path d="M13 23S1 15.5 1 7.5A6.5 6.5 0 0 1 13 4.4A6.5 6.5 0 0 1 25 7.5C25 15.5 13 23 13 23Z" fill="#ff5a8a" />
+          <path d="M7.5 3.4C9 3.4 10.4 4.3 11 5.8" stroke="#ffd4e3" strokeWidth="1.4" fill="none" strokeLinecap="round" opacity=".85" />
+        </svg>
+      </span>
+    </div>
+  )
+}
+
+function Valentine({ subtle }) {
+  const hearts = Array.from({ length: subtle ? 3 : 7 }, (_, i) => ({
+    left: `${6 + rand(i + 1) * 88}%`,
+    animationDuration: `${16 + rand(i + 3) * 12}s`,
+    animationDelay: `${-rand(i + 7) * 24}s`,
+    transform: `scale(${0.7 + rand(i + 5) * 0.9})`,
+  }))
+  const petals = Array.from({ length: subtle ? 12 : 30 }, (_, i) => ({
+    left: `${rand(i + 2) * 100}%`,
+    animationDuration: `${7 + rand(i + 9) * 8}s`,
+    animationDelay: `${-rand(i + 5) * 12}s`,
+    opacity: 0.5 + rand(i + 11) * 0.5,
+  }))
+  return (
+    <>
+      {hearts.map((s, i) => (
+        <Heart key={i} style={s} />
+      ))}
+      {petals.map((s, i) => (
+        <span key={`p${i}`} className="fes-petal" style={s} />
+      ))}
+      <Twinkles count={subtle ? 8 : 16} colors={['#ff9fc3', '#fff']} />
+    </>
+  )
+}
+
+function ChineseLantern({ style }) {
+  return (
+    <div className="fes-clantern" style={style}>
+      <svg width="40" height="72" viewBox="0 0 40 72">
+        <line x1="20" y1="0" x2="20" y2="10" stroke="#caa23a" strokeWidth="1.5" />
+        <rect x="13" y="9" width="14" height="5" rx="1.5" fill="#f0c24a" />
+        <ellipse cx="20" cy="32" rx="16" ry="17" fill="#d81f1f" />
+        <ellipse cx="14" cy="26" rx="4" ry="8" fill="#ff6a5a" opacity=".5" />
+        <path d="M20 15.5Q11 32 20 48.5M20 15.5Q29 32 20 48.5" stroke="#a81414" strokeWidth="1" fill="none" opacity=".7" />
+        <circle cx="20" cy="32" r="4.5" fill="#f5d36a" />
+        <path d="M20 29.5l1.2 1.9 2.1.3-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2.1-.3z" fill="#c0392b" />
+        <rect x="13" y="47" width="14" height="5" rx="1.5" fill="#f0c24a" />
+        <g stroke="#e8b63a" strokeWidth="1.4">
+          <line x1="16" y1="52" x2="16" y2="66" />
+          <line x1="20" y1="52" x2="20" y2="69" />
+          <line x1="24" y1="52" x2="24" y2="66" />
+        </g>
+      </svg>
+    </div>
+  )
+}
+
+function ChineseNewYear({ subtle }) {
+  const lanterns = Array.from({ length: subtle ? 3 : 6 }, (_, i) => ({
+    left: `${4 + rand(i + 1) * 90}%`,
+    top: `${-6 + rand(i + 3) * 8}%`,
+    animationDuration: `${3.5 + rand(i + 5) * 2.5}s`,
+    animationDelay: `${-rand(i + 7) * 3}s`,
+    transform: `scale(${0.72 + rand(i + 9) * 0.6})`,
+  }))
+  const confetti = Array.from({ length: subtle ? 14 : 36 }, (_, i) => {
+    const w = 5 + rand(i + 4) * 5
+    return {
+      left: `${rand(i + 2) * 100}%`,
+      width: w,
+      height: w * 0.6,
+      background: ['#ffd24d', '#ffbf3a', '#ff7a4a'][i % 3],
+      animationDuration: `${5 + rand(i + 9) * 7}s`,
+      animationDelay: `${-rand(i + 5) * 12}s`,
+    }
+  })
+  return (
+    <>
+      {lanterns.map((s, i) => (
+        <ChineseLantern key={i} style={s} />
+      ))}
+      {confetti.map((s, i) => (
+        <span key={`c${i}`} className="fes-confetti" style={s} />
+      ))}
+      <Twinkles count={subtle ? 8 : 18} colors={['#ffd24d', '#ff8a5a']} />
+    </>
+  )
+}
+
 const DECOR = {
   loykrathong: LoyKrathong,
   halloween: Halloween,
   christmas: Christmas,
   songkran: Songkran,
   newyear: NewYear,
+  chinesenewyear: ChineseNewYear,
+  valentine: Valentine,
 }
 
 export default function FestivalLayer() {

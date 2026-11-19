@@ -373,6 +373,14 @@ button:active:not(:disabled) { transform: scale(.97) }
 :root[data-festival='newyear'] { --bg-page: #0b0b20; --bg-card: #16163a; --bg-card-alt: #1c1c46; --text-accent: #ffd27f; --fes-glow: #ffcf6a; }
 :root[data-theme='light'][data-festival='newyear'] { --bg-page: #f0effb; --bg-card: #fbfbff; --bg-card-alt: #f2f1fb; --fes-glow: #b8860b; }
 
+/* ตรุษจีน — แดง/ทอง */
+:root[data-festival='chinesenewyear'] { --bg-page: #260909; --bg-card: #360f0f; --bg-card-alt: #431414; --text-accent: #ffd24d; --fes-glow: #ff5a3c; }
+:root[data-theme='light'][data-festival='chinesenewyear'] { --bg-page: #fcece7; --bg-card: #fff6f2; --bg-card-alt: #fbeae3; --fes-glow: #c0392b; }
+
+/* วาเลนไทน์ — ชมพู/แดง */
+:root[data-festival='valentine'] { --bg-page: #1e0a16; --bg-card: #2c1021; --bg-card-alt: #371328; --text-accent: #ff9fc3; --fes-glow: #ff5a8a; }
+:root[data-theme='light'][data-festival='valentine'] { --bg-page: #fdeef3; --bg-card: #fff7fb; --bg-card-alt: #fbeaf1; --fes-glow: #e0417a; }
+
 /* ---- the fixed decoration layer ---- */
 .fes-layer { position: fixed; inset: 0; z-index: 45; overflow: hidden; pointer-events: none; opacity: .92 }
 .fes-layer.fes-behind { z-index: 1; opacity: .48 }
@@ -398,6 +406,15 @@ button:active:not(:disabled) { transform: scale(.97) }
   radial-gradient(100% 60% at 50% -5%, rgba(255,210,120,.22), transparent 60%),
   radial-gradient(90% 50% at 15% 100%, rgba(99,102,241,.22), transparent 60%),
   radial-gradient(90% 50% at 85% 100%, rgba(236,72,153,.2), transparent 60%); }
+.fes-vignette.chinesenewyear { background:
+  radial-gradient(110% 60% at 50% -8%, rgba(255,90,60,.3), transparent 60%),
+  radial-gradient(90% 55% at 12% 0%, rgba(255,200,80,.24), transparent 60%),
+  radial-gradient(90% 55% at 88% 0%, rgba(255,200,80,.24), transparent 60%),
+  radial-gradient(100% 50% at 50% 115%, rgba(200,30,20,.22), transparent 60%); }
+.fes-vignette.valentine { background:
+  radial-gradient(110% 60% at 50% -8%, rgba(255,120,170,.28), transparent 60%),
+  radial-gradient(90% 55% at 15% 110%, rgba(255,90,140,.24), transparent 60%),
+  radial-gradient(90% 55% at 85% 110%, rgba(255,150,190,.22), transparent 60%); }
 
 /* ---- keyframes ---- */
 @keyframes fes-rise { 0% { transform: translateY(0) rotate(0); opacity: 0 } 8% { opacity: .95 } 85% { opacity: .95 } 100% { transform: translateY(-112vh) rotate(6deg); opacity: 0 } }
@@ -467,9 +484,30 @@ button:active:not(:disabled) { transform: scale(.97) }
 /* ---- ripple (songkran) ---- */
 .fes-ripple { position: absolute; bottom: 6vh; width: 60px; height: 20px; border: 2px solid rgba(150,230,255,.6); border-radius: 50%; animation: fes-ripple 3s ease-out infinite }
 
+/* ---- valentine + ตรุษจีน ---- */
+@keyframes fes-swing { 0%, 100% { transform: rotate(-7deg) } 50% { transform: rotate(7deg) } }
+@keyframes fes-petal-fall { 0% { transform: translateY(-8vh) translateX(0) rotate(0); opacity: 0 } 10% { opacity: .9 } 100% { transform: translateY(112vh) translateX(70px) rotate(380deg); opacity: .3 } }
+@keyframes fes-confetti { 0% { transform: translateY(-6vh) rotate(0); opacity: 0 } 10% { opacity: 1 } 100% { transform: translateY(112vh) rotate(560deg); opacity: .4 } }
+
+/* floating heart (rises like a lantern) */
+.fes-heart { position: absolute; bottom: -8vh; animation: fes-rise linear infinite; will-change: transform }
+.fes-heart > span { display: block; animation: fes-sway ease-in-out infinite }
+.fes-heart svg { display: block; filter: drop-shadow(0 0 9px rgba(255,90,140,.7)); animation: fes-flicker 1.9s ease-in-out infinite }
+
+/* rose petal (falls + spins) */
+.fes-petal { position: absolute; top: -3vh; width: 15px; height: 11px; border-radius: 50% 50% 50% 50% / 72% 72% 28% 28%; background: radial-gradient(circle at 40% 30%, #ffd3e2, #ff7aa8 68%, #e85b95); animation: fes-petal-fall linear infinite; will-change: transform }
+
+/* chinese hanging lantern (swings from the top) */
+.fes-clantern { position: absolute; top: -3px; transform-origin: top center; animation: fes-swing ease-in-out infinite; will-change: transform }
+.fes-clantern svg { display: block; filter: drop-shadow(0 4px 12px rgba(255,60,30,.45)) }
+
+/* gold confetti (ตรุษจีน) */
+.fes-confetti { position: absolute; top: -4vh; border-radius: 1px; animation: fes-confetti linear infinite; will-change: transform }
+
 @media (prefers-reduced-motion: reduce) {
   .fes-lantern, .fes-lantern > span, .fes-lantern i, .fes-krathong, .fes-krathong > span,
   .fes-krathong .flame, .fes-snow, .fes-drop, .fes-twinkle, .fes-bat, .fes-bat svg,
-  .fes-float, .fes-firework, .fes-ripple, .fes-moon { animation: none !important }
+  .fes-float, .fes-firework, .fes-ripple, .fes-moon,
+  .fes-heart, .fes-heart > span, .fes-heart svg, .fes-petal, .fes-clantern, .fes-confetti { animation: none !important }
   .fes-layer { opacity: .5 }
 }
