@@ -46,14 +46,15 @@ const LOGIN_THEMES = {
     card: 'linear-gradient(160deg, rgba(20,38,74,.72), rgba(10,20,44,.72))',
   },
   loykrathong: {
-    bg: 'radial-gradient(130% 120% at 15% 0%, #3a2357 0%, #241640 38%, #160e28 70%, #0e0820 100%)',
-    blobs: ['#f59e0b', '#fb923c', '#a855f7'],
-    grid: 'rgba(255,205,140,.4)',
+    // moonlit river night, golden krathong lights
+    bg: 'radial-gradient(130% 120% at 15% 0%, #2c3c8f 0%, #1b2563 38%, #111840 70%, #090d27 100%)',
+    blobs: ['#f59e0b', '#f472b6', '#6366f1'],
+    grid: 'rgba(255,214,150,.30)',
     accent: '#ffd9a0',
-    btnFrom: '#f59e0b', btnTo: '#ea580c',
-    glow: ['#f59e0b', '#fb923c', '#a855f7', '#ffd76a'],
-    card: 'linear-gradient(160deg, rgba(60,40,24,.72), rgba(30,18,40,.74))',
-    shine: 'linear-gradient(100deg, #fff1d6 0%, #fcd34d 30%, #fb923c 50%, #fde68a 72%, #ffffff 100%)',
+    btnFrom: '#f59e0b', btnTo: '#e8590c',
+    glow: ['#fbbf24', '#fb923c', '#f472b6', '#fde68a'],
+    card: 'linear-gradient(160deg, rgba(30,40,96,.74), rgba(13,18,50,.78))',
+    shine: 'linear-gradient(100deg, #fff4dc 0%, #fcd34d 30%, #fbcfe8 50%, #fde68a 72%, #ffffff 100%)',
   },
   halloween: {
     bg: 'radial-gradient(130% 120% at 15% 0%, #2a0f4a 0%, #1c0a38 38%, #140826 70%, #0c0518 100%)',
@@ -326,8 +327,10 @@ export default function Login() {
         </div>
 
         {/* ---------- sign-in card (dark glass) with a festival mascot peeking behind it ---------- */}
-        <div className="relative">
-        <LoginMascot festival={festival} username={username} gaze={gaze} covering={covering} />
+        {/* the top margin reserves room for the mascot's head, so it is never cut off by
+            the top of the screen */}
+        <div className="relative mt-[124px] lg:mt-[146px]">
+        <LoginMascot festival={festival} gaze={gaze} covering={covering} />
         <div
           className="glow-border on anim-fade-up relative z-10 rounded-2xl border border-white/12 p-6 shadow-2xl backdrop-blur-xl sm:p-7 [animation-delay:160ms]"
           style={{ background: t.card }}

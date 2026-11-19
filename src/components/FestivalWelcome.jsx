@@ -31,13 +31,18 @@ export default function FestivalWelcome() {
 
   useEffect(() => {
     if (!nonce) return // first render (nonce 0) → nothing
-    const active = useFestivalStore.getState().active
-    if (!active || active === 'none') return
-    setFes(FESTIVALS[active] || null)
-    setLeaving(false)
-    const close = setTimeout(() => setLeaving(true), WELCOME_MS)
-    const done = setTimeout(() => setFes(null), WELCOME_MS + 320)
+    let close, done
+    // give the post-sign-in festival sync a moment, so we announce the admin's real choice
+    const start = setTimeout(() => {
+      const active = useFestivalStore.getState().active
+      if (!active || active === 'none') return
+      setFes(FESTIVALS[active] || null)
+      setLeaving(false)
+      close = setTimeout(() => setLeaving(true), WELCOME_MS)
+      done = setTimeout(() => setFes(null), WELCOME_MS + 320)
+    }, 900)
     return () => {
+      clearTimeout(start)
       clearTimeout(close)
       clearTimeout(done)
     }

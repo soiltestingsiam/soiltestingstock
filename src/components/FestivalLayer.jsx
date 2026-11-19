@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useActiveFestival } from '../store/useFestivalStore'
 
@@ -11,47 +12,267 @@ const rand = (seed) => {
   return x - Math.floor(x)
 }
 
-function Lanterns({ count = 6 }) {
+/* ---------------- ลอยกระทง · ยี่เป็ง — a moonlit river scene ----------------
+   Full moon + its path of light on the water, a softly rippling river, lotus krathongs
+   (folded banana-leaf บายศรี, lotus petals, marigolds, candle + incense) drifting with their
+   reflections, Yi Peng sky lanterns rising at different depths, and fireflies. */
+
+// gradients shared by every krathong / lantern on the page (one copy in the DOM)
+function LoyDefs() {
+  return (
+    <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+      <defs>
+        <linearGradient id="lk-body" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#e2701b" />
+          <stop offset="55%" stopColor="#ffb347" />
+          <stop offset="100%" stopColor="#ffe9a8" />
+        </linearGradient>
+        <radialGradient id="lk-glow" cx="50%" cy="78%" r="62%">
+          <stop offset="0%" stopColor="#fffbe8" stopOpacity=".95" />
+          <stop offset="100%" stopColor="#ffd27a" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="lk-halo">
+          <stop offset="0%" stopColor="#ffc96b" stopOpacity=".5" />
+          <stop offset="100%" stopColor="#ffc96b" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="kt-leaf" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#3f9b5e" />
+          <stop offset="100%" stopColor="#14532d" />
+        </linearGradient>
+        <linearGradient id="kt-leaf2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#86cf97" />
+          <stop offset="100%" stopColor="#2f7a49" />
+        </linearGradient>
+        <linearGradient id="kt-petal" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fff2f7" />
+          <stop offset="55%" stopColor="#ffb6d0" />
+          <stop offset="100%" stopColor="#ec6b9c" />
+        </linearGradient>
+        <linearGradient id="kt-petal2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#ffd5e5" />
+        </linearGradient>
+        <linearGradient id="kt-candle" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#f3e2c0" />
+          <stop offset="50%" stopColor="#fffaf0" />
+          <stop offset="100%" stopColor="#e6d0a6" />
+        </linearGradient>
+        <radialGradient id="kt-flame" cx="50%" cy="70%" r="65%">
+          <stop offset="0%" stopColor="#fffbe0" />
+          <stop offset="45%" stopColor="#ffd34d" />
+          <stop offset="100%" stopColor="#ff7a1a" />
+        </radialGradient>
+        <radialGradient id="kt-halo">
+          <stop offset="0%" stopColor="#ffd88a" stopOpacity=".8" />
+          <stop offset="100%" stopColor="#ffb347" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="kt-water">
+          <stop offset="0%" stopColor="#ffcf7a" stopOpacity=".5" />
+          <stop offset="100%" stopColor="#ffcf7a" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="kt-fade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fff" stopOpacity=".6" />
+          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+        <mask id="kt-reflect" maskUnits="userSpaceOnUse" x="0" y="73" width="120" height="62">
+          <rect x="0" y="73" width="120" height="62" fill="url(#kt-fade)" />
+        </mask>
+        <radialGradient id="moon-face" cx="40%" cy="38%" r="70%">
+          <stop offset="0%" stopColor="#fffdf3" />
+          <stop offset="70%" stopColor="#fff1c9" />
+          <stop offset="100%" stopColor="#f0d48e" />
+        </radialGradient>
+        <radialGradient id="moon-halo">
+          <stop offset="0%" stopColor="#fff1c4" stopOpacity=".55" />
+          <stop offset="38%" stopColor="#ffe3a0" stopOpacity=".18" />
+          <stop offset="100%" stopColor="#ffe3a0" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+    </svg>
+  )
+}
+
+function KrathongBody() {
+  return (
+    <g>
+      {[-80, -63, -46, -29, -12, 12, 29, 46, 63, 80].map((a) => (
+        <path key={a} d="M60 66 L54.5 48.5 Q60 41.5 65.5 48.5 Z" fill="url(#kt-leaf2)" stroke="#1d6b3c" strokeWidth=".7" transform={`rotate(${a} 60 66)`} />
+      ))}
+      <path d="M8 62 Q60 84 112 62 Q104 75 60 78 Q16 75 8 62 Z" fill="url(#kt-leaf)" />
+      <path d="M15 64.5 Q60 80 105 64.5" stroke="#6fca8b" strokeWidth="1" fill="none" opacity=".55" />
+      {[-66, -44, -22, 0, 22, 44, 66].map((a) => (
+        <path key={a} d="M60 63 C51 51 53 36 60 27 C67 36 69 51 60 63 Z" fill="url(#kt-petal)" stroke="#df5f8e" strokeWidth=".6" transform={`rotate(${a} 60 63)`} />
+      ))}
+      {[-34, -12, 12, 34].map((a) => (
+        <path key={a} d="M60 61 C55 52 56 42 60 35 C64 42 65 52 60 61 Z" fill="url(#kt-petal2)" stroke="#f3a3c2" strokeWidth=".5" transform={`rotate(${a} 60 61)`} />
+      ))}
+      {[[46, 58], [74, 58], [39, 62], [81, 62]].map(([x, y]) => (
+        <g key={x}>
+          <circle cx={x} cy={y} r="3.9" fill="#ffa62b" />
+          <circle cx={x} cy={y} r="1.6" fill="#f07800" />
+        </g>
+      ))}
+    </g>
+  )
+}
+
+function KrathongSVG() {
+  return (
+    <svg viewBox="0 0 120 100" overflow="visible" className="fes-kt-svg" aria-hidden="true">
+      {/* reflection on the water, fading out */}
+      <g mask="url(#kt-reflect)">
+        <g transform="translate(0 147) scale(1 -1)">
+          <KrathongBody />
+          <circle cx="60" cy="27" r="14" fill="url(#kt-halo)" />
+        </g>
+      </g>
+      <ellipse className="fes-kt-ripple" cx="60" cy="75" rx="44" ry="5" fill="none" stroke="rgba(255,226,170,.5)" strokeWidth="1.2" style={{ transformOrigin: '60px 75px' }} />
+      <ellipse className="fes-kt-pulse" cx="60" cy="76" rx="54" ry="8" fill="url(#kt-water)" style={{ transformOrigin: '60px 76px' }} />
+      <KrathongBody />
+      {/* incense */}
+      <path d="M66 58 L72 31 M69 58 L77 34 M63 58 L66 30" stroke="#7a4a24" strokeWidth="1.2" strokeLinecap="round" />
+      <g fill="#ff5a2e">
+        <circle cx="72" cy="31" r="1.4" />
+        <circle cx="77" cy="34" r="1.4" />
+        <circle cx="66" cy="30" r="1.4" />
+      </g>
+      <path className="fes-kt-smoke" d="M72 30 C69 23 76 19 72 11" stroke="rgba(255,255,255,.4)" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+      {/* candle + flame */}
+      <rect x="55.5" y="36" width="9" height="22" rx="2.5" fill="url(#kt-candle)" />
+      <ellipse cx="60" cy="36.5" rx="4.5" ry="1.4" fill="#fff6e0" />
+      <circle className="fes-kt-halo" cx="60" cy="27" r="17" fill="url(#kt-halo)" style={{ transformOrigin: '60px 27px' }} />
+      <path className="fes-kt-flame" d="M60 15 C64.5 21 65 27 60 32 C55 27 55.5 21 60 15 Z" fill="url(#kt-flame)" style={{ transformOrigin: '60px 32px' }} />
+      <path d="M60 22 C61.6 25 61.6 28 60 30 C58.4 28 58.4 25 60 22 Z" fill="#fffef5" opacity=".9" />
+    </svg>
+  )
+}
+
+function Krathongs({ count = 5 }) {
   return Array.from({ length: count }, (_, i) => {
-    const left = 6 + rand(i + 1) * 88
-    const dur = 16 + rand(i + 3) * 12
-    const delay = -rand(i + 7) * dur
-    const scale = 0.7 + rand(i + 5) * 0.8
+    const depth = rand(i + 41) // 0 = near … 1 = far up the river
+    const dur = 50 + rand(i + 11) * 36
     return (
       <div
         key={i}
-        className="fes-lantern"
-        style={{ left: `${left}%`, animationDuration: `${dur}s`, animationDelay: `${delay}s`, transform: `scale(${scale})` }}
+        className="fes-kt"
+        style={{
+          width: Math.round(96 - depth * 46),
+          bottom: `${0.5 + depth * 8.5}vh`,
+          animationDuration: `${dur}s`,
+          animationDelay: `${-rand(i + 13) * dur}s`,
+          zIndex: Math.round((1 - depth) * 10),
+        }}
       >
-        <span style={{ animationDuration: `${4 + rand(i + 2) * 3}s` }}>
-          <i />
-        </span>
+        <div className="fes-kt-bob" style={{ opacity: 1 - depth * 0.35, animationDuration: `${3 + rand(i + 3) * 2}s`, animationDelay: `${-rand(i + 5) * 3}s` }}>
+          <KrathongSVG />
+        </div>
       </div>
     )
   })
 }
 
-function Krathongs({ count = 4 }) {
+function SkyLantern() {
+  return (
+    <svg viewBox="0 0 40 60" overflow="visible" aria-hidden="true">
+      <ellipse cx="20" cy="32" rx="30" ry="34" fill="url(#lk-halo)" />
+      <path d="M5 9 Q20 0 35 9 L31 47 Q20 52 9 47 Z" fill="url(#lk-body)" />
+      <path d="M5 9 Q20 0 35 9 Q20 5.5 5 9 Z" fill="#b8540f" opacity=".55" />
+      <path d="M12.5 7 L14 48.5 M20 4.5 V50 M27.5 7 L26 48.5" stroke="rgba(150,60,0,.22)" strokeWidth=".8" />
+      <ellipse cx="20" cy="40" rx="10" ry="9" fill="url(#lk-glow)" />
+      <ellipse cx="20" cy="47.5" rx="11" ry="2.6" fill="#a8480c" />
+      <circle className="fes-lk-fire" cx="20" cy="51" r="2.3" fill="#fff3c4" style={{ transformOrigin: '20px 51px' }} />
+    </svg>
+  )
+}
+
+function SkyLanterns({ count = 9 }) {
   return Array.from({ length: count }, (_, i) => {
-    const dur = 26 + rand(i + 11) * 18
-    const delay = -rand(i + 13) * dur
-    const bottom = 2 + rand(i + 17) * 6
-    const scale = 0.75 + rand(i + 19) * 0.7
+    const depth = rand(i + 61)
+    const dur = 28 + depth * 22 + rand(i + 3) * 10 // far ones rise slower
     return (
       <div
         key={i}
-        className="fes-krathong"
-        style={{ bottom: `${bottom}vh`, animationDuration: `${dur}s`, animationDelay: `${delay}s`, transform: `scale(${scale})` }}
+        className="fes-lk"
+        style={{ left: `${4 + rand(i + 1) * 90}%`, width: Math.round(36 - depth * 19), animationDuration: `${dur}s`, animationDelay: `${-rand(i + 7) * dur}s` }}
       >
-        <span>
-          <span className="reflect" />
-          <span className="leaf" />
-          <span className="petal" />
-          <span className="flame" />
-        </span>
+        <div className="fes-lk-sway" style={{ opacity: 1 - depth * 0.45, animationDuration: `${5 + rand(i + 2) * 4}s` }}>
+          <SkyLantern />
+        </div>
       </div>
     )
   })
+}
+
+function LoyMoon({ style }) {
+  return (
+    <div className="fes-lkmoon" style={style}>
+      <svg viewBox="0 0 200 200" width="100%" height="100%" aria-hidden="true">
+        <circle className="fes-lkmoon-halo" cx="100" cy="100" r="99" fill="url(#moon-halo)" style={{ transformOrigin: '100px 100px' }} />
+        <circle cx="100" cy="100" r="40" fill="url(#moon-face)" />
+        <g fill="#e2c385" opacity=".38">
+          <circle cx="88" cy="90" r="6.5" />
+          <circle cx="111" cy="108" r="8" />
+          <circle cx="108" cy="84" r="3.6" />
+          <circle cx="86" cy="112" r="4.5" />
+          <circle cx="118" cy="94" r="2.6" />
+        </g>
+      </svg>
+    </div>
+  )
+}
+
+// a seamless sine wave line across 2400 units (wavelength 200)
+const wave = (y, a) => {
+  let d = `M0 ${y} Q50 ${y - a} 100 ${y}`
+  for (let x = 200; x <= 2400; x += 100) d += ` T${x} ${y}`
+  return d
+}
+
+function River({ subtle, moonPath }) {
+  return (
+    <div className="fes-river">
+      <svg className="fes-waves" viewBox="0 0 2400 100" preserveAspectRatio="none" aria-hidden="true">
+        <path d={wave(26, 4)} stroke="rgba(255,226,170,.22)" strokeWidth="1.4" fill="none" />
+        <path d={wave(52, 5)} stroke="rgba(190,205,255,.18)" strokeWidth="1.4" fill="none" />
+        <path d={wave(78, 6)} stroke="rgba(255,226,170,.16)" strokeWidth="1.6" fill="none" />
+      </svg>
+      {moonPath && (
+        <div className="fes-moonpath" style={moonPath}>
+          {Array.from({ length: 7 }, (_, i) => (
+            <span key={i} style={{ width: Math.round(30 + i * 9 + rand(i + 81) * 16), animationDelay: `${-rand(i + 71) * 3}s` }} />
+          ))}
+        </div>
+      )}
+      {Array.from({ length: subtle ? 6 : 14 }, (_, i) => (
+        <span
+          key={i}
+          className="fes-glint"
+          style={{
+            left: `${rand(i + 91) * 96}%`,
+            bottom: `${8 + rand(i + 93) * 70}%`,
+            width: Math.round(14 + rand(i + 95) * 34),
+            animationDelay: `${-rand(i + 97) * 4}s`,
+            animationDuration: `${3 + rand(i + 99) * 3}s`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+function Fireflies({ count = 10 }) {
+  return Array.from({ length: count }, (_, i) => (
+    <span
+      key={i}
+      className="fes-firefly"
+      style={{
+        left: `${rand(i + 101) * 100}%`,
+        bottom: `${4 + rand(i + 103) * 18}vh`,
+        animationDuration: `${7 + rand(i + 105) * 6}s`,
+        animationDelay: `${-rand(i + 107) * 10}s`,
+      }}
+    />
+  ))
 }
 
 function Twinkles({ count = 16, colors = ['#fff', '#ffe29a'] }) {
@@ -76,12 +297,18 @@ function Twinkles({ count = 16, colors = ['#fff', '#ffe29a'] }) {
 }
 
 function LoyKrathong({ subtle }) {
+  // login (subtle, behind the content): moon top-left, clear of the card + mascot
+  const moon = subtle ? { top: '4%', left: '6%', width: 150, height: 150 } : { top: '12%', right: '5%', width: 170, height: 170 }
+  const moonPath = subtle ? { left: 'calc(6% + 75px)' } : { right: 'calc(5% + 85px)' }
   return (
     <>
-      <div className="fes-moon" style={{ top: '9%', right: '11%' }} />
-      <Lanterns count={subtle ? 3 : 7} />
+      <LoyDefs />
+      <Twinkles count={subtle ? 8 : 20} colors={['#ffffff', '#ffe29a']} />
+      <LoyMoon style={moon} />
+      <SkyLanterns count={subtle ? 4 : 10} />
+      <River subtle={subtle} moonPath={moonPath} />
+      <Fireflies count={subtle ? 4 : 10} />
       <Krathongs count={subtle ? 2 : 5} />
-      <Twinkles count={subtle ? 8 : 18} />
     </>
   )
 }
@@ -323,10 +550,34 @@ const DECOR = {
   valentine: Valentine,
 }
 
+// Decorations are pure eye-candy, so they mount just AFTER the page has loaded and gone
+// idle (the festival colours themselves apply instantly via CSS). Keeps first paint and
+// interaction fast — the scene then fades in.
+function useAfterLoad() {
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    let idle, timer
+    const go = () => {
+      const ric = window.requestIdleCallback
+      if (ric) idle = ric(() => setReady(true), { timeout: 1500 })
+      else timer = setTimeout(() => setReady(true), 300)
+    }
+    if (document.readyState === 'complete') go()
+    else window.addEventListener('load', go, { once: true })
+    return () => {
+      window.removeEventListener('load', go)
+      if (idle && window.cancelIdleCallback) window.cancelIdleCallback(idle)
+      clearTimeout(timer)
+    }
+  }, [])
+  return ready
+}
+
 export default function FestivalLayer() {
   const festival = useActiveFestival()
   const { pathname } = useLocation()
-  if (festival === 'none' || !festival) return null
+  const ready = useAfterLoad()
+  if (festival === 'none' || !festival || !ready) return null
   // on the login page the decorations are toned down and sit BEHIND the branded story,
   // so it feels festive without being busy
   const onLogin = pathname === '/login'

@@ -356,8 +356,8 @@ button:active:not(:disabled) { transform: scale(.97) }
 /* ---- palette tints (ride on top of the dark / light base) ---- */
 /* dark base: tint page + cards + accent; light base: tint page + card only (text stays
    black for readability). The PDF export strips data-festival so exports are never tinted. */
-:root[data-festival='loykrathong'] { --bg-page: #0c0a24; --bg-card: #16122f; --bg-card-alt: #1d1840; --text-accent: #ffd27f; --fes-glow: #ffb24d; }
-:root[data-theme='light'][data-festival='loykrathong'] { --bg-page: #fdf1dd; --bg-card: #fffaf1; --bg-card-alt: #fbf1e2; --fes-glow: #e07b1a; }
+:root[data-festival='loykrathong'] { --bg-page: #0a1030; --bg-card: #131a42; --bg-card-alt: #1a2252; --text-accent: #ffd27f; --fes-glow: #ffb24d; --fes-river: rgba(40, 58, 150, .30); }
+:root[data-theme='light'][data-festival='loykrathong'] { --bg-page: #eef0fb; --bg-card: #fbfbff; --bg-card-alt: #f1f2fb; --fes-glow: #e07b1a; --fes-river: rgba(90, 110, 210, .14); }
 
 :root[data-festival='halloween'] { --bg-page: #180a28; --bg-card: #211138; --bg-card-alt: #2a1646; --text-accent: #ff9248; --fes-glow: #ff7518; }
 :root[data-theme='light'][data-festival='halloween'] { --bg-page: #f3eafc; --bg-card: #fdfbff; --bg-card-alt: #f6effc; --fes-glow: #d2601a; }
@@ -382,14 +382,16 @@ button:active:not(:disabled) { transform: scale(.97) }
 :root[data-theme='light'][data-festival='valentine'] { --bg-page: #fdeef3; --bg-card: #fff7fb; --bg-card-alt: #fbeaf1; --fes-glow: #e0417a; }
 
 /* ---- the fixed decoration layer ---- */
-.fes-layer { position: fixed; inset: 0; z-index: 45; overflow: hidden; pointer-events: none; opacity: .92 }
+@keyframes fes-layer-in { from { opacity: 0 } }
+.fes-layer { position: fixed; inset: 0; z-index: 45; overflow: hidden; pointer-events: none; opacity: .92; animation: fes-layer-in .8s ease both }
 .fes-layer.fes-behind { z-index: 1; opacity: .48 }
 .fes-vignette { position: absolute; inset: 0; pointer-events: none }
 
 /* soft warm/cool edge glows per festival */
 .fes-vignette.loykrathong { background:
-  radial-gradient(120% 60% at 50% 115%, rgba(255,150,40,.28), transparent 60%),
-  radial-gradient(80% 50% at 85% -10%, rgba(255,205,120,.22), transparent 60%); }
+  radial-gradient(120% 55% at 50% 118%, rgba(255,170,70,.28), transparent 60%),
+  radial-gradient(70% 45% at 90% 8%, rgba(255,226,160,.18), transparent 60%),
+  radial-gradient(90% 60% at 8% 0%, rgba(80,100,230,.24), transparent 60%); }
 .fes-vignette.halloween { background:
   radial-gradient(100% 60% at 50% 115%, rgba(255,117,24,.22), transparent 55%),
   radial-gradient(90% 60% at 10% 0%, rgba(124,58,237,.3), transparent 60%),
@@ -431,25 +433,43 @@ button:active:not(:disabled) { transform: scale(.97) }
 @keyframes fes-ripple { 0% { transform: scale(.3); opacity: .7 } 100% { transform: scale(1.8); opacity: 0 } }
 @keyframes fes-moon-glow { 0%, 100% { opacity: .8; transform: scale(1) } 50% { opacity: 1; transform: scale(1.14) } }
 
-/* ---- sky lantern (โคมลอย) ---- */
-.fes-lantern { position: absolute; bottom: -10vh; width: 34px; height: 46px; animation: fes-rise linear infinite; will-change: transform }
-.fes-lantern > span { display: block; width: 100%; height: 100%; animation: fes-sway ease-in-out infinite; }
-.fes-lantern i {
-  position: absolute; inset: 0; border-radius: 46% 46% 50% 50% / 62% 62% 38% 38%;
-  background: radial-gradient(circle at 50% 38%, #fff4cf, #ffbf5e 48%, #ef7a1c 100%);
-  box-shadow: 0 0 18px 4px rgba(255,160,60,.5), inset 0 -6px 10px rgba(180,60,0,.35);
-  animation: fes-flicker 1.6s ease-in-out infinite;
-}
-.fes-lantern i::before { content: ''; position: absolute; left: 50%; top: -5px; width: 46%; height: 6px; transform: translateX(-50%); border-radius: 4px; background: #d98a2b }
-.fes-lantern i::after { content: ''; position: absolute; left: 50%; bottom: -7px; width: 3px; height: 9px; transform: translateX(-50%); background: linear-gradient(#ffdf91, #ff7b1a); border-radius: 2px; filter: blur(.3px) }
+/* ---- ลอยกระทง · ยี่เป็ง (moonlit river scene) ---- */
+@keyframes fes-kt-bob { 0%, 100% { transform: translateY(0) rotate(-2deg) } 50% { transform: translateY(-3px) rotate(2deg) } }
+@keyframes fes-kt-flame { 0%, 100% { transform: scale(1, 1) } 30% { transform: scale(.92, 1.08) } 60% { transform: scale(1.06, .94) } }
+@keyframes fes-kt-halo { 0%, 100% { opacity: .85; transform: scale(1) } 50% { opacity: 1; transform: scale(1.12) } }
+@keyframes fes-kt-ripple { 0% { opacity: .7; transform: scale(.55) } 100% { opacity: 0; transform: scale(1.35) } }
+@keyframes fes-kt-smoke { 0% { opacity: 0; transform: translateY(4px) } 30% { opacity: .55 } 100% { opacity: 0; transform: translateY(-8px) } }
+@keyframes fes-lk-sway { 0%, 100% { transform: translateX(0) rotate(-3deg) } 50% { transform: translateX(14px) rotate(3deg) } }
+@keyframes fes-lk-fire { 0%, 100% { opacity: .85; transform: scale(1) } 50% { opacity: 1; transform: scale(1.25) } }
+@keyframes fes-waves { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+@keyframes fes-glint { 0%, 100% { opacity: 0; transform: translateX(0) } 45% { opacity: .9 } 70% { opacity: .5; transform: translateX(10px) } }
+@keyframes fes-shimmer { 0%, 100% { opacity: .35; transform: scaleX(.85) } 50% { opacity: .95; transform: scaleX(1.08) } }
+@keyframes fes-firefly { 0% { opacity: 0; transform: translate(0, 0) } 15% { opacity: 1 } 50% { transform: translate(16px, -16vh) } 85% { opacity: .85 } 100% { opacity: 0; transform: translate(-10px, -32vh) } }
+@keyframes fes-lkmoon-halo { 0%, 100% { opacity: .85; transform: scale(1) } 50% { opacity: 1; transform: scale(1.08) } }
 
-/* ---- krathong (floating lotus raft) ---- */
-.fes-krathong { position: absolute; bottom: 2.5vh; width: 54px; height: 30px; animation: fes-drift linear infinite; will-change: transform }
-.fes-krathong > span { position: relative; display: block; width: 100%; height: 100%; animation: fes-bob 3.2s ease-in-out infinite }
-.fes-krathong .leaf { position: absolute; left: 0; bottom: 0; width: 54px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 50% 30%, #2f7d4f, #14532d 75%); box-shadow: 0 6px 14px rgba(0,0,0,.35) }
-.fes-krathong .petal { position: absolute; left: 11px; bottom: 5px; width: 32px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #ffd1e6, #ff86b4 70%, #e85b95) }
-.fes-krathong .flame { position: absolute; left: 50%; bottom: 13px; width: 7px; height: 13px; transform: translateX(-50%); border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: radial-gradient(circle at 50% 70%, #fff3b0, #ffae2e 55%, #ff6a00); box-shadow: 0 0 14px 4px rgba(255,170,50,.8); animation: fes-flicker 1.4s ease-in-out infinite }
-.fes-krathong .reflect { position: absolute; left: 6px; bottom: -10px; width: 42px; height: 10px; border-radius: 50%; background: radial-gradient(circle, rgba(255,180,70,.5), transparent 70%); filter: blur(2px) }
+.fes-kt { position: absolute; left: 0; animation: fes-drift linear infinite; will-change: transform }
+.fes-kt-bob { animation: fes-kt-bob ease-in-out infinite }
+.fes-kt-svg { display: block; width: 100%; height: auto }
+.fes-kt-svg .fes-kt-flame { animation: fes-kt-flame 1.3s ease-in-out infinite }
+.fes-kt-svg .fes-kt-halo { animation: fes-kt-halo 1.8s ease-in-out infinite }
+.fes-kt-svg .fes-kt-pulse { animation: fes-kt-halo 2.4s ease-in-out infinite }
+.fes-kt-svg .fes-kt-ripple { animation: fes-kt-ripple 3.2s ease-out infinite }
+.fes-kt-svg .fes-kt-smoke { animation: fes-kt-smoke 3.6s ease-in-out infinite }
+
+.fes-lk { position: absolute; bottom: -12vh; animation: fes-rise linear infinite; will-change: transform }
+.fes-lk-sway { animation: fes-lk-sway ease-in-out infinite }
+.fes-lk svg { display: block; width: 100%; height: auto }
+.fes-lk .fes-lk-fire { animation: fes-lk-fire 1.4s ease-in-out infinite }
+
+.fes-lkmoon { position: absolute }
+.fes-lkmoon .fes-lkmoon-halo { animation: fes-lkmoon-halo 5s ease-in-out infinite }
+
+.fes-river { position: absolute; left: 0; right: 0; bottom: 0; height: 16vh; overflow: hidden; background: linear-gradient(to bottom, transparent, var(--fes-river, rgba(40, 58, 150, .3))) }
+.fes-waves { position: absolute; left: 0; bottom: 0; width: 200%; height: 100%; animation: fes-waves 28s linear infinite }
+.fes-glint { position: absolute; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, rgba(255, 232, 180, .9), transparent); animation: fes-glint ease-in-out infinite }
+.fes-moonpath { position: absolute; bottom: 10%; display: flex; flex-direction: column; align-items: center; gap: 5px; transform: translateX(-50%) }
+.fes-moonpath span { display: block; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, rgba(255, 238, 196, .9), transparent); animation: fes-shimmer 3s ease-in-out infinite }
+.fes-firefly { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #ffe08a; box-shadow: 0 0 8px 2px rgba(255, 200, 90, .8); animation: fes-firefly linear infinite }
 
 /* ---- moon ---- */
 .fes-moon { position: absolute; width: 92px; height: 92px; border-radius: 50%; background: radial-gradient(circle at 38% 34%, #fffaf0, #ffe9b8 58%, #f4cf86); box-shadow: inset -6px -6px 14px rgba(190,150,80,.4) }
@@ -621,7 +641,7 @@ button:active:not(:disabled) { transform: scale(.97) }
 
 /* login: head behind the card, paws gripping over its top edge */
 .login-pet {
-  position: absolute; left: 50%; top: 0; width: 176px; height: 202px; pointer-events: none;
+  position: absolute; left: 50%; top: 0; width: 166px; height: 191px; pointer-events: none;
   transform: translate(-50%, -73.9%);
   animation: login-pet-in .7s cubic-bezier(.22, 1.2, .36, 1) both;
 }
@@ -631,6 +651,9 @@ button:active:not(:disabled) { transform: scale(.97) }
 .login-pet.covering .pet-lift-l { transform: translate(4px, -58px) scale(1.25) rotate(-7deg) }
 .login-pet.covering .pet-lift-r { transform: translate(-4px, -58px) scale(1.25) rotate(7deg) }
 @media (max-width: 1023px) { .login-pet { width: 140px; height: 161px } }
+@keyframes pet-twinkle { 0%, 100% { opacity: .25; transform: scale(.6) rotate(0) } 50% { opacity: 1; transform: scale(1.15) rotate(45deg) } }
+.pet-sprite .pet-twinkle { animation: pet-twinkle 2.4s ease-in-out infinite }
+.pet-sprite .pet-twinkle-2 { animation-delay: -1.2s }
 
 /* companion on every page */
 .pet-companion { position: fixed; left: 0; bottom: 2px; z-index: 46; pointer-events: none; will-change: transform }
@@ -670,10 +693,10 @@ button:active:not(:disabled) { transform: scale(.97) }
 :root[data-theme='light'] .pet-lv { color: var(--text-primary) } /* light theme keeps text black */
 
 @media (prefers-reduced-motion: reduce) {
-  .fes-lantern, .fes-lantern > span, .fes-lantern i, .fes-krathong, .fes-krathong > span,
-  .fes-krathong .flame, .fes-snow, .fes-drop, .fes-twinkle, .fes-bat, .fes-bat svg,
+  .fes-snow, .fes-drop, .fes-twinkle, .fes-bat, .fes-bat svg,
   .fes-float, .fes-firework, .fes-ripple, .fes-moon,
-  .fes-heart, .fes-heart > span, .fes-heart svg, .fes-petal, .fes-clantern, .fes-confetti { animation: none !important }
+  .fes-heart, .fes-heart > span, .fes-heart svg, .fes-petal, .fes-clantern, .fes-confetti,
+  .fes-kt, .fes-kt-bob, .fes-kt-svg *, .fes-lk, .fes-lk-sway, .fes-lk *, .fes-lkmoon *, .fes-waves, .fes-glint, .fes-moonpath span, .fes-firefly { animation: none !important }
   .fes-layer { opacity: .5 }
   .fes-welcome-overlay, .fes-welcome-card, .fes-welcome-emoji, .fes-welcome-emoji > span { animation: none !important }
   .fes-welcome-emoji::before, .fes-welcome-emoji::after { animation: none !important; opacity: 0 }
