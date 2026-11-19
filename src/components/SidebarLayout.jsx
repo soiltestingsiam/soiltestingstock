@@ -10,7 +10,7 @@ export default function SidebarLayout({ title, heading, subtitle, backTo, childr
   const navigate = useNavigate()
 
   return (
-    <div className="flex min-h-screen bg-[var(--bg-page)]">
+    <div className="flex min-h-screen">
       <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
 
       <div className="min-w-0 flex-1">
