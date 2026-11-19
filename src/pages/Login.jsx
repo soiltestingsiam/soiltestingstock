@@ -3,8 +3,30 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { Lock, User, Eye, EyeOff, LogIn, UserPlus, Loader2, FlaskConical, Award, ShieldCheck, Boxes, ChevronRight } from 'lucide-react'
 import SealLogo from '../components/SealLogo'
 import WebStandardsModal from '../components/WebStandardsModal'
+import LoginMascot from '../components/LoginMascot'
 import { useAuthStore } from '../store/useAuthStore'
 import { useFestivalStore, useActiveFestival } from '../store/useFestivalStore'
+
+// Work out where the mascot should look from the caret position in a field: it measures
+// the pixel width of the text up to the caret and maps it across the field → the eyes
+// sweep left-to-right as you type. Returns gaze {x,y} in roughly -1..1.
+let _measureCtx = null
+function caretGaze(el) {
+  try {
+    const start = el.selectionStart ?? el.value.length
+    if (!_measureCtx) _measureCtx = document.createElement('canvas').getContext('2d')
+    const cs = getComputedStyle(el)
+    _measureCtx.font = `${cs.fontSize} ${cs.fontFamily}`
+    const text = el.type === 'password' ? '•'.repeat(start) : el.value.slice(0, start)
+    const w = _measureCtx.measureText(text).width
+    const padL = parseFloat(cs.paddingLeft) || 0
+    const inner = el.clientWidth - padL - (parseFloat(cs.paddingRight) || 0)
+    const frac = inner > 0 ? Math.min(1, Math.max(0, w / inner)) : 0
+    return { x: (frac * 2 - 1) * 0.82, y: 0.55 }
+  } catch {
+    return { x: 0, y: 0.4 }
+  }
+}
 
 // A branded login experience: an animated hero that auto-plays the company story
 // (chapters fade through on their own), with a readable dark-glass sign-in card. The
@@ -157,6 +179,11 @@ export default function Login() {
   const [busy, setBusy] = useState(false)
   const [chapter, setChapter] = useState(0)
   const [showStandards, setShowStandards] = useState(false)
+  const [focusField, setFocusField] = useState(null) // 'username' | 'password' | 'confirm'
+  const [gaze, setGaze] = useState({ x: 0, y: 0 })
+  // the mascot covers its eyes while you type a hidden password; reveal it and it peeks
+  const covering = (focusField === 'password' || focusField === 'confirm') && !showPassword
+  const trackGaze = (e) => setGaze(caretGaze(e.currentTarget))
 
   useEffect(() => {
     const t = setInterval(() => setChapter((c) => (c + 1) % STORY.length), STORY_MS)
@@ -247,7 +274,7 @@ export default function Login() {
             <div>
               <div className="text-4xl font-extrabold tracking-wider text-shine sm:text-5xl" style={t.shine ? { backgroundImage: t.shine } : undefined}>STS</div>
               <div className="mt-1 text-sm font-semibold tracking-[0.22em]" style={{ color: t.accent }}>SOIL TESTING SIAM</div>
-              <div className="text-[11px] font-medium tracking-wide text-white/55">บริษัท ซอยล์เทสติ้งสยาม จำกัด</div>
+              <div className="text-xs font-medium tracking-wide text-white/55">บริษัท ซอยล์เทสติ้งสยาม จำกัด</div>
             </div>
           </div>
 
@@ -290,17 +317,19 @@ export default function Login() {
           {/* ISO badge strip */}
           <div className="anim-fade-up mt-8 flex flex-wrap items-center justify-center gap-2.5 lg:justify-start [animation-delay:200ms]">
             {['ISO 9001', 'ISO/IEC 17025'].map((iso) => (
-              <span key={iso} className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] font-semibold tracking-wide text-white/80">
+              <span key={iso} className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-white/80">
                 <ShieldCheck size={13} className="text-emerald-300" /> {iso}
               </span>
             ))}
-            <span className="text-[11px] text-white/45">มาตรฐานการทดสอบระดับสากล</span>
+            <span className="text-xs text-white/45">มาตรฐานการทดสอบระดับสากล</span>
           </div>
         </div>
 
-        {/* ---------- sign-in card (dark glass) ---------- */}
+        {/* ---------- sign-in card (dark glass) with a festival mascot peeking behind it ---------- */}
+        <div className="relative">
+        <LoginMascot festival={festival} gaze={gaze} covering={covering} />
         <div
-          className="glow-border on anim-fade-up rounded-2xl border border-white/12 p-6 shadow-2xl backdrop-blur-xl sm:p-7 [animation-delay:160ms]"
+          className="glow-border on anim-fade-up relative z-10 rounded-2xl border border-white/12 p-6 shadow-2xl backdrop-blur-xl sm:p-7 [animation-delay:160ms]"
           style={{ background: t.card }}
         >
           <div className="mb-5 text-center">
@@ -332,7 +361,18 @@ export default function Login() {
               <span className="text-sm font-medium text-white/80">ชื่อผู้ใช้งาน</span>
               <div className="relative">
                 <User size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
-                <input autoFocus value={username} onChange={(e) => setUsername(e.target.value)} placeholder="username" className={loginInput('pl-9')} required />
+                <input
+                  autoFocus
+                  value={username}
+                  onChange={(e) => { setUsername(e.target.value); trackGaze(e) }}
+                  onFocus={(e) => { setFocusField('username'); trackGaze(e) }}
+                  onBlur={() => setFocusField(null)}
+                  onKeyUp={trackGaze}
+                  onClick={trackGaze}
+                  placeholder="username"
+                  className={loginInput('pl-9')}
+                  required
+                />
               </div>
             </label>
 
@@ -343,17 +383,24 @@ export default function Login() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); trackGaze(e) }}
+                  onFocus={(e) => { setFocusField('password'); trackGaze(e) }}
+                  onBlur={() => setFocusField(null)}
+                  onKeyUp={trackGaze}
+                  onClick={trackGaze}
                   placeholder="••••••••"
                   className={loginInput('pl-9 pr-9')}
                   required
                 />
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-white/50 transition hover:bg-white/10 hover:text-white"
+                  className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg transition hover:bg-white/10"
+                  style={{ color: t.accent }}
                   aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
                   aria-pressed={showPassword}
+                  title={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
@@ -366,7 +413,18 @@ export default function Login() {
                 <span className="text-sm font-medium text-white/80">ยืนยันรหัสผ่าน</span>
                 <div className="relative">
                   <Lock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
-                  <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" className={loginInput('pl-9')} required />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => { setConfirmPassword(e.target.value); trackGaze(e) }}
+                    onFocus={(e) => { setFocusField('confirm'); trackGaze(e) }}
+                    onBlur={() => setFocusField(null)}
+                    onKeyUp={trackGaze}
+                    onClick={trackGaze}
+                    placeholder="••••••••"
+                    className={loginInput('pl-9')}
+                    required
+                  />
                 </div>
               </label>
             )}
@@ -391,12 +449,13 @@ export default function Login() {
             <button
               type="button"
               onClick={() => setShowStandards(true)}
-              className="group flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold text-emerald-200 transition hover:bg-emerald-400/20"
+              className="group flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-400/20"
             >
               <ShieldCheck size={12} /> ตรวจมาตรฐานเว็บผ่าน · Lighthouse 100 · WCAG AA
             </button>
-            <div className="text-[11px] text-white/40">© Soil Testing Siam Co., Ltd. · STS Inventory</div>
+            <div className="text-xs text-white/40">© Soil Testing Siam Co., Ltd. · STS Inventory</div>
           </div>
+        </div>
         </div>
       </div>
 

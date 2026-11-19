@@ -579,6 +579,39 @@ button:active:not(:disabled) { transform: scale(.97) }
   animation: fes-welcome-bar linear forwards;
 }
 
+/* ---- login mascot (a festival creature that peeks from behind the sign-in card) ---- */
+@keyframes mascot-bob { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
+@keyframes mascot-aura { 0%, 100% { opacity: .5; transform: scale(1) } 50% { opacity: .82; transform: scale(1.08) } }
+@keyframes mascot-blink { 0%, 92%, 100% { transform: scaleY(1) } 96% { transform: scaleY(.12) } }
+@keyframes mascot-pulse { 0%, 100% { transform: scale(1) } 50% { transform: scale(1.16) } }
+@keyframes mascot-swing { 0%, 100% { transform: rotate(-9deg) } 50% { transform: rotate(9deg) } }
+@keyframes mascot-in { 0% { opacity: 0; transform: translate(-50%, -40%) scale(.8) } 100% { opacity: 1; transform: translate(-50%, -70%) scale(1) } }
+
+.login-mascot {
+  position: absolute; left: 50%; top: 0; z-index: 0;
+  width: 168px; height: 198px; pointer-events: none;
+  transform: translate(-50%, -70%);
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, .4));
+  animation: mascot-in .6s cubic-bezier(.22, 1.2, .36, 1) both;
+}
+.login-mascot svg { display: block; overflow: visible }
+.mascot-bob { animation: mascot-bob 4.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center }
+.mascot-aura { animation: mascot-aura 4s ease-in-out infinite; transform-box: fill-box; transform-origin: center }
+.mascot-eye { animation: mascot-blink 5.4s infinite; transform-box: fill-box; transform-origin: center }
+.mascot-arm { transition: transform .5s cubic-bezier(.34, 1.4, .5, 1); transform-box: fill-box; transform-origin: center top }
+.login-mascot.covering .mascot-arm-left { transform: translate(2px, -118px) rotate(-7deg) }
+.login-mascot.covering .mascot-arm-right { transform: translate(-2px, -118px) rotate(7deg) }
+.mascot-hat { transform-box: fill-box }
+.mascot-pompom { transform-box: fill-box; transform-origin: center; animation: mascot-bob 2.6s ease-in-out infinite }
+.mascot-pulse { animation: mascot-pulse 1.7s ease-in-out infinite }
+.mascot-spin { animation: sts-spin 9s linear infinite }
+.mascot-swing { animation: mascot-swing 2.8s ease-in-out infinite }
+
+@media (max-width: 1023px) {
+  .login-mascot { width: 132px; height: 156px; transform: translate(-50%, -66%); }
+  @keyframes mascot-in { 0% { opacity: 0; transform: translate(-50%, -36%) scale(.8) } 100% { opacity: 1; transform: translate(-50%, -66%) scale(1) } }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fes-lantern, .fes-lantern > span, .fes-lantern i, .fes-krathong, .fes-krathong > span,
   .fes-krathong .flame, .fes-snow, .fes-drop, .fes-twinkle, .fes-bat, .fes-bat svg,
@@ -589,4 +622,7 @@ button:active:not(:disabled) { transform: scale(.97) }
   .fes-welcome-emoji::before, .fes-welcome-emoji::after { animation: none !important; opacity: 0 }
   .fes-welcome-card { opacity: 1 !important; transform: none !important }
   /* keep the auto-dismiss countdown visible so the popup still closes on its own */
+  .login-mascot, .mascot-bob, .mascot-aura, .mascot-eye, .mascot-pompom, .mascot-pulse, .mascot-spin, .mascot-swing { animation: none !important }
+  .mascot-arm { transition-duration: .2s }
+  /* the eyes still track typing and the paws still cover the password — just no idle motion */
 }
