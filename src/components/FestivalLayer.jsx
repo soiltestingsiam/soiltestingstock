@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom'
 import { useActiveFestival } from '../store/useFestivalStore'
 
 // Full-screen decorative overlay for the active festival. Fixed, pointer-events-none,
@@ -229,7 +230,9 @@ const DECOR = {
 
 export default function FestivalLayer() {
   const festival = useActiveFestival()
-  if (!festival || festival === 'none') return null
+  const { pathname } = useLocation()
+  // the login page has its own branded story animation — keep festival decorations off it
+  if (pathname === '/login' || festival === 'none' || !festival) return null
   const Decor = DECOR[festival]
   return (
     <div className="fes-layer" aria-hidden="true">

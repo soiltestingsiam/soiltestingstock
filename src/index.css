@@ -208,6 +208,7 @@ div.jump-highlight {
 @keyframes sts-aurora { 0% { transform: translate(0, 0) scale(1) } 33% { transform: translate(7%, -5%) scale(1.18) } 66% { transform: translate(-6%, 6%) scale(.9) } 100% { transform: translate(0, 0) scale(1) } }
 @keyframes sts-gradient-text { to { background-position: 200% center } }
 @keyframes sts-ring-dash { to { stroke-dashoffset: -1000 } }
+@keyframes sts-progress { from { width: 0 } to { width: 100% } }
 
 /* entrance helpers */
 .anim-fade-up { animation: sts-fade-up .6s cubic-bezier(.2, .7, .2, 1) both }
