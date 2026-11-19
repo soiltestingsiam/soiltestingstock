@@ -93,6 +93,9 @@ export const FESTIVAL_OUTFIT = {
   halloween: { head: 'witch', neck: 'pumpkin' },
   loykrathong: { head: 'flower-crown', neck: 'gold-necklace' },
   newyear: { head: 'party', neck: 'gold-bowtie' },
+  mothersday: { head: 'jasmine', neck: 'maalai' },
+  fathersday: { head: 'canna', neck: 'yellow-scarf' },
+  anniversary: { head: 'party', neck: 'gold-bowtie' },
 }
 
 export const SLOTS = { head: 'หัว', face: 'ใบหน้า', neck: 'คอ', back: 'หลัง', aura: 'รัศมี' }
@@ -138,6 +141,31 @@ export const sizeForLevel = (level) => Math.min(1 + (level - 1) * 0.05, 1.45)
 export const dailyXp = (streak) => 20 + Math.min(streak, 10) * 3
 
 export const XP = { stockIn: 5, stockOut: 5, product: 3 }
+
+// XP from work (saving receipts / issues / products) is capped per day, so the level
+// reflects showing up every day (เติมไฟ) rather than how many rows someone types. The
+// daily check-in XP is separate and not capped.
+export const WORK_XP_DAILY_CAP = 30
+
+// The pet's own name (chosen by its owner). Shown in the panel, bubbles and screen-reader
+// label; React renders it as plain text.
+export const NAME_MAX = 16
+export function cleanPetName(raw) {
+  return Array.from(
+    String(raw ?? '')
+      .replace(/[\u0000-\u001f\u007f-\u009f\u200b\u200c\u200e\u200f\u2028-\u202e\u2066-\u2069]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim(),
+  )
+    .slice(0, NAME_MAX)
+    .join('')
+    .trim()
+}
+
+// After hours the pet curls up and dozes (it wakes when you click it).
+export const SLEEP_FROM_HOUR = 19 // 19:00
+export const SLEEP_UNTIL_HOUR = 6 // 06:00
+export const isSleepyHour = (d = new Date()) => d.getHours() >= SLEEP_FROM_HOUR || d.getHours() < SLEEP_UNTIL_HOUR
 
 // a — b colour mix (t = 0 → a, t = 1 → b)
 export function mix(a, b, t) {

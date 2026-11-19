@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { ChevronDown, ChevronRight, FileSpreadsheet, History, Loader2, RefreshCw, Search, ShieldAlert, X } from 'lucide-react'
 import SidebarLayout from '../components/SidebarLayout'
 import Pagination from '../components/Pagination'
+import EmptyState from '../components/EmptyState'
 import DateTextInput from '../components/DateTextInput'
 import { inputClass } from '../components/FormField'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
@@ -348,8 +349,8 @@ export default function AuditLog() {
                 })}
                 {!loading && rows.length === 0 && !error && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-sm text-[var(--text-faint)]">
-                      {hasFilters ? 'ไม่พบ LOG ตามเงื่อนไขที่ค้นหา' : 'ยังไม่มี LOG (ระบบเริ่มบันทึกตั้งแต่ติดตั้ง 003_audit_log.sql)'}
+                    <td colSpan={7} className="px-4 py-8">
+                      <EmptyState title={hasFilters ? 'ไม่พบ LOG ตามเงื่อนไขที่ค้นหา' : 'ยังไม่มี LOG (ระบบเริ่มบันทึกตั้งแต่ติดตั้ง 003_audit_log.sql)'} />
                     </td>
                   </tr>
                 )}

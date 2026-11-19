@@ -4,12 +4,10 @@ import SidebarLayout from '../components/SidebarLayout'
 import { inputClass } from '../components/FormField'
 import QrScannerModal from '../components/QrScannerModal'
 import Pagination, { usePagination } from '../components/Pagination'
+import EmptyState from '../components/EmptyState'
 import { useStore } from '../store/useStore'
-import { groupByProduct, movementsForProduct, sumMovements } from '../utils/stockCalc'
+import { buildStockRows } from '../utils/stockStatus'
 import { thaiCompare, formatNumber } from '../utils/format'
-
-// "สินค้าเหลือน้อย" threshold: 5 units or fewer -> pinned to the top in red.
-const LOW_STOCK_THRESHOLD = 5
 
 export default function Stock() {
   const products = useStore((s) => s.products)
@@ -19,20 +17,7 @@ export default function Stock() {
   const [query, setQuery] = useState('')
   const [scanOpen, setScanOpen] = useState(false)
 
-  const allRows = useMemo(() => {
-    const insByProduct = groupByProduct(stockIns)
-    const outsByProduct = groupByProduct(stockOuts)
-    return products.map((p) => {
-      const ins = movementsForProduct(insByProduct, p)
-      const outs = movementsForProduct(outsByProduct, p)
-      const inQty = sumMovements(ins).qty
-      const outQty = sumMovements(outs).qty
-      const qty = inQty - outQty
-      // A product that has never been received isn't "running low" — it just isn't stocked.
-      const hasMovement = ins.length > 0 || outs.length > 0
-      return { ...p, inQty, outQty, qty, hasMovement, low: hasMovement && qty <= LOW_STOCK_THRESHOLD }
-    })
-  }, [products, stockIns, stockOuts])
+  const allRows = useMemo(() => buildStockRows(products, stockIns, stockOuts), [products, stockIns, stockOuts])
 
   const lowStockCount = useMemo(() => allRows.filter((r) => r.low).length, [allRows])
 
@@ -116,8 +101,8 @@ export default function Stock() {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-faint)]">
-                  ไม่พบสินค้า
+                <td colSpan={6} className="px-4 py-6">
+                  <EmptyState title="ไม่พบสินค้า" hint={query.trim() ? 'ลองค้นหาด้วยรหัสหรือชื่ออื่น หรือสแกน QR ดูนะ' : 'ยังไม่มีสินค้าในระบบ'} />
                 </td>
               </tr>
             )}

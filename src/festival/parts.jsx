@@ -290,3 +290,27 @@ export function ChineseLantern({ style }) {
   )
 }
 
+
+// a party balloon on a string (ครบรอบบริษัท)
+export function Balloon({ color = '#3b82f6', w = 26 }) {
+  return (
+    <svg width={w} height={w * 2.13} viewBox="0 0 30 64" aria-hidden="true">
+      <path d="M15 2 C6 2 1 9 1 17 C1 27 9 34 15 36 C21 34 29 27 29 17 C29 9 24 2 15 2 Z" fill={color} />
+      <ellipse cx="10" cy="11" rx="3.4" ry="5.6" fill="#fff" opacity=".38" transform="rotate(-20 10 11)" />
+      <path d="M12.5 36 L17.5 36 L15 39.5 Z" fill={color} />
+      <path d="M15 39.5 Q11 47 15 54 Q19 60 15 64" stroke="rgba(255,255,255,.6)" strokeWidth="1" fill="none" />
+    </svg>
+  )
+}
+
+// a small 5-petal blossom — jasmine white (วันแม่) or canna yellow (วันพ่อ)
+export function Blossom({ fill = '#ffffff', center = '#fde68a', edge = 'rgba(0,0,0,.08)', size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 26 26" aria-hidden="true">
+      {[0, 72, 144, 216, 288].map((a) => (
+        <ellipse key={a} cx="13" cy="6.6" rx="3.8" ry="6.2" fill={fill} stroke={edge} strokeWidth=".6" transform={`rotate(${a} 13 13)`} />
+      ))}
+      <circle cx="13" cy="13" r="2.8" fill={center} />
+    </svg>
+  )
+}

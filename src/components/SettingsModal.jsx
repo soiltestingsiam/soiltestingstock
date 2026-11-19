@@ -6,7 +6,7 @@ import { useAuthStore, useCurrentUser, usePendingCount, useIsAdmin, useIsOwner, 
 import { useStore } from '../store/useStore'
 import { useFestivalStore } from '../store/useFestivalStore'
 import { usePetStore } from '../store/usePetStore'
-import { FESTIVALS, PICKER_IDS, resolveFestival } from '../festival/festivals'
+import { FESTIVALS, PICKER_IDS, resolveFestival, parseAnniversary, anniversaryYears } from '../festival/festivals'
 import { SPECIES, levelInfo, pickCoat } from '../pet/petData'
 
 export default function SettingsModal({ open, onClose }) {
@@ -70,7 +70,8 @@ function FestivalToggle() {
   const enabled = useFestivalStore((s) => s.enabled)
   const setEnabled = useFestivalStore((s) => s.setEnabled)
   const mode = useFestivalStore((s) => s.mode)
-  const active = resolveFestival(mode)
+  const anniversary = useFestivalStore((s) => s.anniversary)
+  const active = resolveFestival(mode, new Date(), parseAnniversary(anniversary))
   const current = FESTIVALS[active] ?? FESTIVALS.none
   return (
     <div className={`mt-6 rounded-xl border p-4 ${enabled ? 'border-[var(--border-color)]' : 'border-[var(--border-color)] opacity-90'}`}>
@@ -135,7 +136,8 @@ function FestivalSection() {
   const setMode = useFestivalStore((s) => s.setMode)
   const [busy, setBusy] = useState(null)
   const [status, setStatus] = useState(null) // { kind: 'ok' | 'warn' | 'error', text }
-  const autoActive = resolveFestival('auto')
+  const anniversary = useFestivalStore((s) => s.anniversary)
+  const autoActive = resolveFestival('auto', new Date(), parseAnniversary(anniversary))
 
   async function pick(m) {
     if (busy) return
@@ -199,11 +201,108 @@ function FestivalSection() {
                 )}
               </span>
               <span className="mt-1 text-xs font-semibold text-[var(--text-primary)]">{o.label}</span>
-              <span className="text-[10px] text-[var(--text-faint)]">{o.desc}</span>
+              <span className="text-[10px] text-[var(--text-secondary)]">{o.desc}</span>
             </button>
           )
         })}
       </div>
+      <AnniversaryField />
+    </div>
+  )
+}
+
+const TH_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+const pad2 = (n) => String(n).padStart(2, '0')
+
+// admin: the company's founding date — in อัตโนมัติ mode the "ครบรอบบริษัท" theme shows the
+// day before, the day and the day after; with the year it also says "ครบรอบ N ปี"
+function AnniversaryField() {
+  const stored = useFestivalStore((s) => s.anniversary)
+  const setAnniversary = useFestivalStore((s) => s.setAnniversary)
+  const cur = parseAnniversary(stored)
+  const [day, setDay] = useState(cur ? String(cur.day) : '')
+  const [month, setMonth] = useState(cur ? String(cur.month) : '')
+  const [yearBE, setYearBE] = useState(cur?.year ? String(cur.year + 543) : '')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+
+  useEffect(() => {
+    const c = parseAnniversary(stored)
+    setDay(c ? String(c.day) : '')
+    setMonth(c ? String(c.month) : '')
+    setYearBE(c?.year ? String(c.year + 543) : '')
+  }, [stored])
+
+  const y = yearBE.trim() ? Number(yearBE.trim()) - 543 : null
+  const draft = day && month ? `${y ? `${y}-` : ''}${pad2(month)}-${pad2(day)}` : ''
+  const draftValid = !!parseAnniversary(draft) && (!yearBE.trim() || /^\d{4}$/.test(yearBE.trim()))
+  const years = anniversaryYears(parseAnniversary(draft))
+
+  async function save(value) {
+    setBusy(true)
+    setMsg(null)
+    const res = await setAnniversary(value)
+    setBusy(false)
+    if (res?.ok) setMsg({ ok: true, text: value ? 'บันทึกวันก่อตั้งแล้ว' : 'ล้างวันก่อตั้งแล้ว' })
+    else if (res?.localOnly) setMsg({ ok: false, text: 'ใช้ได้เฉพาะเครื่องนี้ — ให้รัน supabase/migrations/005_app_settings.sql ก่อน' })
+    else setMsg({ ok: false, text: `บันทึกไม่สำเร็จ: ${res?.error?.message || 'ไม่ทราบสาเหตุ'}` })
+  }
+
+  const field = 'rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-blue-500'
+  return (
+    <div className="mt-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface-soft)] p-3">
+      <div className="text-xs font-semibold text-[var(--text-primary)]">🎉 วันก่อตั้งบริษัท (สำหรับธีม “ครบรอบบริษัท”)</div>
+      <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
+        โหมดอัตโนมัติจะขึ้นธีมครบรอบ 1 วันก่อน – 1 วันหลังวันนี้ · ใส่ปีด้วยจะแสดง “ครบรอบ N ปี”
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <select aria-label="วันที่ก่อตั้ง" value={day} onChange={(e) => setDay(e.target.value)} className={field}>
+          <option value="">วันที่</option>
+          {Array.from({ length: 31 }, (_, i) => (
+            <option key={i + 1} value={i + 1}>
+              {i + 1}
+            </option>
+          ))}
+        </select>
+        <select aria-label="เดือนที่ก่อตั้ง" value={month} onChange={(e) => setMonth(e.target.value)} className={field}>
+          <option value="">เดือน</option>
+          {TH_MONTHS.map((m, i) => (
+            <option key={m} value={i + 1}>
+              {m}
+            </option>
+          ))}
+        </select>
+        <input
+          aria-label="ปีที่ก่อตั้ง (พ.ศ. ไม่บังคับ)"
+          inputMode="numeric"
+          maxLength={4}
+          placeholder="ปี พ.ศ. (ถ้ามี)"
+          value={yearBE}
+          onChange={(e) => setYearBE(e.target.value.replace(/[^0-9]/g, ''))}
+          className={`${field} w-28`}
+        />
+        <button
+          type="button"
+          disabled={busy || !draftValid || draft === stored}
+          onClick={() => save(draft)}
+          className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
+        >
+          {busy ? 'กำลังบันทึก...' : 'บันทึก'}
+        </button>
+        {stored && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => save('')}
+            className="rounded-lg border border-[var(--border-color)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover)]"
+          >
+            ล้าง
+          </button>
+        )}
+      </div>
+      <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]" role="status">
+        {msg ? `${msg.ok ? '✓' : '⚠'} ${msg.text}` : day && month && !draftValid ? '⚠ วันที่ไม่ถูกต้อง' : years ? `ปีนี้ครบรอบ ${years} ปี` : stored ? '' : 'ยังไม่ได้ตั้งวันก่อตั้ง'}
+      </p>
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Search, Pencil, Trash2, ArrowDownCircle, ArrowUpCircle, CalendarRange } from 'lucide-react'
 import { inputClass } from './FormField'
 import DateTextInput from './DateTextInput'
+import EmptyState from './EmptyState'
 import { useStore } from '../store/useStore'
 import { useCostedStockOuts } from '../store/useCostedStockOuts'
 import { ddmmyyyyToSortable, toThaiDate } from '../utils/date'
@@ -198,8 +199,8 @@ export default function TransactionSearchPanel({ initialType = 'all', onBeforeNa
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-4 py-8 text-center text-[var(--text-faint)]">
-                  ไม่พบรายการ
+                <td colSpan={11} className="px-4 py-6">
+                  <EmptyState title="ไม่พบรายการ" hint="ลองเปลี่ยนคำค้นหรือช่วงวันที่ดูนะ" />
                 </td>
               </tr>
             )}

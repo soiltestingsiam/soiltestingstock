@@ -1,9 +1,10 @@
 import { create } from 'zustand'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
-import { levelInfo, dailyXp } from '../pet/petData'
+import { levelInfo, dailyXp, pickCoat, cleanPetName, WORK_XP_DAILY_CAP } from '../pet/petData'
 
-// Each user's own pet: species, XP (→ level → size + unlocked accessories), the daily
-// "เติมไฟ" streak, what they have equipped, and whether they want it shown.
+// Each user's own pet: its name, species, XP (→ level → size + unlocked accessories), the
+// daily "เติมไฟ" streak, XP earned from work today (capped), what they have equipped, and
+// whether they want it shown.
 //
 // Saved per user, two ways:
 //  - this browser:  localStorage `sts-pet:<username>` (instant, works offline)
@@ -12,11 +13,11 @@ import { levelInfo, dailyXp } from '../pet/petData'
 // On sign-in the newer copy wins. It is cosmetic only — nothing in the stock system
 // reads it.
 
-const DEFAULT_PET = { species: 'cat', xp: 0, streak: 0, lastDay: null, equipped: {}, hidden: false, updatedAt: 0 }
+const DEFAULT_PET = { name: '', species: 'cat', xp: 0, streak: 0, lastDay: null, workDay: null, workXp: 0, equipped: {}, hidden: false, updatedAt: 0 }
 
 const localKey = (name) => `sts-pet:${name}`
 
-function dayKey(d = new Date()) {
+export function dayKey(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 function yesterdayKey() {
@@ -96,10 +97,23 @@ export const usePetStore = create((set, get) => ({
     }
   },
 
-  _emit: (type, text) => {
+  _emit: (type, text, ms) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
     set((s) => ({ events: [...s.events.slice(-3), { id, type, text }] }))
-    setTimeout(() => set((s) => ({ events: s.events.filter((e) => e.id !== id) })), type === 'levelup' ? 4200 : 3000)
+    setTimeout(() => set((s) => ({ events: s.events.filter((e) => e.id !== id) })), ms || (type === 'levelup' ? 4200 : 3000))
+  },
+
+  // what to call the pet: the name its owner gave it, else its coat name
+  displayName: () => {
+    const { pet, owner } = get()
+    return pet.name || pickCoat(pet.species, owner).name
+  },
+
+  // XP from work still available today
+  workXpLeft: () => {
+    const { pet } = get()
+    const used = pet.workDay === dayKey() ? pet.workXp || 0 : 0
+    return Math.max(0, WORK_XP_DAILY_CAP - used)
   },
 
   _update: (patch, { syncNow = false } = {}) => {
@@ -124,15 +138,42 @@ export const usePetStore = create((set, get) => ({
     if (pet.lastDay === today) return
     const streak = pet.lastDay === yesterdayKey() ? (pet.streak || 0) + 1 : 1
     const gain = dailyXp(streak)
-    get()._emit('checkin', `🔥 เติมไฟวันนี้ · สตรีค ${streak} วัน · +${gain} XP`)
+    get()._emit('checkin', `🔥 ${get().displayName()} ได้เติมไฟแล้ว · สตรีค ${streak} วัน · +${gain} XP`, 4200)
     get()._update({ xp: (pet.xp || 0) + gain, streak, lastDay: today }, { syncNow: true })
   },
 
+  // a save in the app (รับ / จ่าย / เพิ่มสินค้า): the pet always cheers; XP only up to the
+  // daily work cap
   gainXp: (amount, label) => {
     if (!get().ready || !amount) return
-    get()._emit('xp', `+${amount} XP${label ? ` · ${label}` : ''}`)
-    get()._update({ xp: (get().pet.xp || 0) + amount })
+    const gain = Math.min(amount, get().workXpLeft())
+    const what = label ? `${label}แล้ว ✓` : 'บันทึกแล้ว ✓'
+    if (gain <= 0) {
+      get()._emit('cheer', `${what} เก่งมาก! (XP จากงานวันนี้ครบ ${WORK_XP_DAILY_CAP} แล้ว)`)
+      return
+    }
+    const { pet } = get()
+    const today = dayKey()
+    const used = pet.workDay === today ? pet.workXp || 0 : 0
+    get()._emit('xp', `${what} +${gain} XP`)
+    get()._update({ xp: (pet.xp || 0) + gain, workDay: today, workXp: used + gain })
   },
+
+  // a gentle heads-up about low stock, at most once a day per user on this device
+  warnLowStock: (count) => {
+    const { ready, owner } = get()
+    if (!ready || !owner || !count) return
+    const key = `sts-pet-lowstock:${owner}`
+    try {
+      if (localStorage.getItem(key) === dayKey()) return
+      localStorage.setItem(key, dayKey())
+    } catch {
+      /* storage blocked — still fine to say it once this session */
+    }
+    get()._emit('warn', `👀 มีสินค้าใกล้หมด ${count} รายการ — กดที่${get().displayName()}เพื่อดู`, 6500)
+  },
+
+  setName: (raw) => get()._update({ name: cleanPetName(raw) }, { syncNow: true }),
 
   setSpecies: (species) => get()._update({ species }, { syncNow: true }),
   equip: (slot, id) => get()._update({ equipped: { ...get().pet.equipped, [slot]: id || null } }, { syncNow: true }),

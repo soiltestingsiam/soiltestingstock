@@ -1,6 +1,7 @@
 import { useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { AlertTriangle, Loader2 } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
+import PawLoader from './components/PawLoader'
 import Login from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -41,11 +42,7 @@ function RequireData({ children }) {
     )
   }
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center gap-2 bg-[var(--bg-page)] text-[var(--text-secondary)]">
-        <Loader2 className="animate-spin" size={18} /> กำลังโหลดข้อมูล...
-      </div>
-    )
+    return <PawLoader text="กำลังโหลดข้อมูล..." />
   }
   return children
 }
@@ -100,11 +97,7 @@ export default function App() {
   return (
     <>
     <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center gap-2 bg-[var(--bg-page)] text-[var(--text-secondary)]">
-          <Loader2 className="animate-spin" size={18} /> กำลังโหลด...
-        </div>
-      }
+      fallback={<PawLoader text="กำลังโหลด..." />}
     >
     <Routes>
       <Route path="/login" element={<Login />} />
