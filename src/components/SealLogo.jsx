@@ -1,4 +1,5 @@
-import logoUrl from '../assets/sts-logo.png'
+import logoWebp from '../assets/sts-logo.webp'
+import logoPng from '../assets/sts-logo-288.png'
 
 // The STS company seal, treated as an animated medal.
 //  - animated: breathing glow aura + gentle float + a sheen that sweeps across it + hover tilt
@@ -48,15 +49,18 @@ export default function SealLogo({ size = 56, animated = true, ring = false, coi
         </svg>
       )}
 
-      <img
-        src={logoUrl}
-        alt="โลโก้ บริษัท ซอยล์เทสติ้งสยาม จำกัด"
-        width={size}
-        height={size}
-        draggable={false}
-        className={`relative z-[2] h-full w-full select-none object-contain ${animated ? 'float' : ''}`}
-        style={{ filter: 'drop-shadow(0 4px 12px rgba(29, 78, 216, 0.3))' }}
-      />
+      <picture className="contents">
+        <source srcSet={logoWebp} type="image/webp" />
+        <img
+          src={logoPng}
+          alt="โลโก้ บริษัท ซอยล์เทสติ้งสยาม จำกัด"
+          width={size}
+          height={size}
+          draggable={false}
+          className={`relative z-[2] h-full w-full select-none object-contain ${animated ? 'float' : ''}`}
+          style={{ filter: 'drop-shadow(0 4px 12px rgba(29, 78, 216, 0.3))' }}
+        />
+      </picture>
 
       {animated && <span className="sts-logo-sheen" aria-hidden="true" />}
     </div>

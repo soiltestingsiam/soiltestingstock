@@ -1,0 +1,142 @@
+import { create } from 'zustand'
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
+import { levelInfo, dailyXp } from '../pet/petData'
+
+// Each user's own pet: species, XP (→ level → size + unlocked accessories), the daily
+// "เติมไฟ" streak, what they have equipped, and whether they want it shown.
+//
+// Saved per user, two ways:
+//  - this browser:  localStorage `sts-pet:<username>` (instant, works offline)
+//  - their account: Supabase Auth user_metadata.pet (follows them to every device —
+//    no table / migration needed; a user can only ever write their own metadata)
+// On sign-in the newer copy wins. It is cosmetic only — nothing in the stock system
+// reads it.
+
+const DEFAULT_PET = { species: 'cat', xp: 0, streak: 0, lastDay: null, equipped: {}, hidden: false, updatedAt: 0 }
+
+const localKey = (name) => `sts-pet:${name}`
+
+function dayKey(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+function yesterdayKey() {
+  const d = new Date()
+  d.setDate(d.getDate() - 1)
+  return dayKey(d)
+}
+
+// What the login page can show for a typed username on this device (species + items).
+export function readLocalPet(username) {
+  const name = (username || '').trim().toLowerCase()
+  if (!name) return null
+  try {
+    return JSON.parse(localStorage.getItem(localKey(name)) || 'null')
+  } catch {
+    return null
+  }
+}
+
+let syncTimer = null
+
+export const usePetStore = create((set, get) => ({
+  owner: null, // lower-cased username (also the coat seed)
+  userId: null,
+  ready: false,
+  pet: DEFAULT_PET,
+  events: [], // short-lived bubbles above the pet: { id, type, text }
+
+  init: (user, username) => {
+    if (!user || !username) return
+    if (get().ready && get().userId === user.id) return
+    const owner = username.trim().toLowerCase()
+    const local = readLocalPet(owner)
+    const remote = user.user_metadata?.pet || null
+    const best = [local, remote].filter(Boolean).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0]
+    set({ owner, userId: user.id, ready: true, pet: { ...DEFAULT_PET, ...(best || {}) }, events: [] })
+    get()._saveLocal()
+    get().checkIn()
+  },
+
+  reset: () => {
+    get().flush()
+    set({ owner: null, userId: null, ready: false, pet: DEFAULT_PET, events: [] })
+  },
+
+  _saveLocal: () => {
+    const { owner, pet } = get()
+    if (!owner) return
+    try {
+      localStorage.setItem(localKey(owner), JSON.stringify(pet))
+    } catch {
+      /* storage full / blocked */
+    }
+  },
+
+  _pushRemote: async () => {
+    syncTimer = null
+    if (!isSupabaseConfigured || !get().ready) return
+    try {
+      await supabase.auth.updateUser({ data: { pet: get().pet } })
+    } catch {
+      /* offline — the local copy is kept and pushed next time */
+    }
+  },
+
+  // write to the account soon (debounced), or right away for important changes
+  _sync: (now = false) => {
+    clearTimeout(syncTimer)
+    if (now) get()._pushRemote()
+    else syncTimer = setTimeout(() => get()._pushRemote(), 45000)
+  },
+
+  flush: () => {
+    if (syncTimer) {
+      clearTimeout(syncTimer)
+      get()._pushRemote()
+    }
+  },
+
+  _emit: (type, text) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    set((s) => ({ events: [...s.events.slice(-3), { id, type, text }] }))
+    setTimeout(() => set((s) => ({ events: s.events.filter((e) => e.id !== id) })), type === 'levelup' ? 4200 : 3000)
+  },
+
+  _update: (patch, { syncNow = false } = {}) => {
+    const before = levelInfo(get().pet.xp).level
+    const pet = { ...get().pet, ...patch, updatedAt: Date.now() }
+    set({ pet })
+    get()._saveLocal()
+    const after = levelInfo(pet.xp).level
+    if (after > before) {
+      get()._emit('levelup', `เลเวลอัป! Lv.${after} 🎉`)
+      get()._sync(true)
+    } else {
+      get()._sync(syncNow)
+    }
+  },
+
+  // เติมไฟ — first visit of the day keeps (or starts) the streak and gives XP
+  checkIn: () => {
+    if (!get().ready) return
+    const { pet } = get()
+    const today = dayKey()
+    if (pet.lastDay === today) return
+    const streak = pet.lastDay === yesterdayKey() ? (pet.streak || 0) + 1 : 1
+    const gain = dailyXp(streak)
+    get()._emit('checkin', `🔥 เติมไฟวันนี้ · สตรีค ${streak} วัน · +${gain} XP`)
+    get()._update({ xp: (pet.xp || 0) + gain, streak, lastDay: today }, { syncNow: true })
+  },
+
+  gainXp: (amount, label) => {
+    if (!get().ready || !amount) return
+    get()._emit('xp', `+${amount} XP${label ? ` · ${label}` : ''}`)
+    get()._update({ xp: (get().pet.xp || 0) + amount })
+  },
+
+  setSpecies: (species) => get()._update({ species }, { syncNow: true }),
+  equip: (slot, id) => get()._update({ equipped: { ...get().pet.equipped, [slot]: id || null } }, { syncNow: true }),
+  setHidden: (hidden) => get()._update({ hidden }, { syncNow: true }),
+}))
+
+export default usePetStore
