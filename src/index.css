@@ -297,7 +297,7 @@ button:active:not(:disabled) { transform: scale(.97) }
 .glow-border { position: relative; isolation: isolate }
 .glow-border::before {
   content: ''; position: absolute; inset: -1.5px; border-radius: inherit; padding: 1.6px; z-index: 0;
-  background: conic-gradient(from var(--sts-angle), #3b82f6, #22d3ee, #6366f1, #ffd76a, #3b82f6);
+  background: conic-gradient(from var(--sts-angle), var(--glow-c1, #3b82f6), var(--glow-c2, #22d3ee), var(--glow-c3, #6366f1), var(--glow-c4, #ffd76a), var(--glow-c1, #3b82f6));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask-composite: exclude; animation: sts-rotate-angle 6s linear infinite;
