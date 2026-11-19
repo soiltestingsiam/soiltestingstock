@@ -579,38 +579,95 @@ button:active:not(:disabled) { transform: scale(.97) }
   animation: fes-welcome-bar linear forwards;
 }
 
-/* ---- login mascot (a festival creature that peeks from behind the sign-in card) ---- */
-@keyframes mascot-bob { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
-@keyframes mascot-aura { 0%, 100% { opacity: .5; transform: scale(1) } 50% { opacity: .82; transform: scale(1.08) } }
-@keyframes mascot-blink { 0%, 92%, 100% { transform: scaleY(1) } 96% { transform: scaleY(.12) } }
-@keyframes mascot-pulse { 0%, 100% { transform: scale(1) } 50% { transform: scale(1.16) } }
-@keyframes mascot-swing { 0%, 100% { transform: rotate(-9deg) } 50% { transform: rotate(9deg) } }
-@keyframes mascot-in { 0% { opacity: 0; transform: translate(-50%, -40%) scale(.8) } 100% { opacity: 1; transform: translate(-50%, -70%) scale(1) } }
+/* ======================================================================
+   🐾 PET — each user's own cat / dog (login mascot + companion on every page)
+   ====================================================================== */
+@keyframes pet-blink { 0%, 93%, 100% { transform: scaleY(1) } 96.5% { transform: scaleY(.08) } }
+@keyframes pet-step { 0%, 100% { transform: translateY(0) rotate(0) } 50% { transform: translateY(-5px) rotate(7deg) } }
+@keyframes pet-tail-cat { 0%, 100% { transform: rotate(-5deg) } 50% { transform: rotate(10deg) } }
+@keyframes pet-tail-dog { 0%, 100% { transform: rotate(-16deg) } 50% { transform: rotate(16deg) } }
+@keyframes pet-ear-l { 0%, 100% { transform: rotate(0) } 50% { transform: rotate(-9deg) } }
+@keyframes pet-ear-r { 0%, 100% { transform: rotate(0) } 50% { transform: rotate(9deg) } }
+@keyframes pet-bob { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-3px) } }
+@keyframes pet-sway { 0%, 100% { transform: rotate(-7deg) } 50% { transform: rotate(7deg) } }
+@keyframes pet-wing { 0%, 100% { transform: rotate(0) } 50% { transform: rotate(-14deg) } }
+@keyframes pet-waddle { 0%, 100% { transform: translateY(0) rotate(-3deg) } 50% { transform: translateY(-4px) rotate(3deg) } }
+@keyframes pet-breathe { 0%, 100% { transform: scale(1, 1) } 50% { transform: scale(1.015, .985) } }
+@keyframes pet-peek { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-4px) } }
+@keyframes login-pet-in { 0% { opacity: 0; transform: translate(-50%, -30%) } 100% { opacity: 1; transform: translate(-50%, -73.9%) } }
+@keyframes pet-bubble { 0% { opacity: 0; transform: translateY(8px) scale(.85) } 10% { opacity: 1; transform: none } 82% { opacity: 1 } 100% { opacity: 0; transform: translateY(-12px) } }
+@keyframes pet-heart { 0% { opacity: 0; transform: translateY(0) scale(.5) } 20% { opacity: 1 } 100% { opacity: 0; transform: translateY(-54px) scale(1.15) } }
+@keyframes pet-levelup { 0% { transform: translateY(0) scale(1) } 30% { transform: translateY(-20px) scale(1.14) } 62% { transform: translateY(0) scale(.95) } 100% { transform: none } }
+@keyframes pet-ring { 0% { opacity: .9; transform: translate(-50%, -50%) scale(.3) } 100% { opacity: 0; transform: translate(-50%, -50%) scale(2.3) } }
+@keyframes pet-flame { 0%, 100% { transform: scale(1) rotate(-4deg) } 50% { transform: scale(1.15) rotate(4deg) } }
 
-.login-mascot {
-  position: absolute; left: 50%; top: 0; z-index: 0;
-  width: 168px; height: 198px; pointer-events: none;
-  transform: translate(-50%, -70%);
-  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, .4));
-  animation: mascot-in .6s cubic-bezier(.22, 1.2, .36, 1) both;
-}
-.login-mascot svg { display: block; overflow: visible }
-.mascot-bob { animation: mascot-bob 4.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center }
-.mascot-aura { animation: mascot-aura 4s ease-in-out infinite; transform-box: fill-box; transform-origin: center }
-.mascot-eye { animation: mascot-blink 5.4s infinite; transform-box: fill-box; transform-origin: center }
-.mascot-arm { transition: transform .5s cubic-bezier(.34, 1.4, .5, 1); transform-box: fill-box; transform-origin: center top }
-.login-mascot.covering .mascot-arm-left { transform: translate(2px, -118px) rotate(-7deg) }
-.login-mascot.covering .mascot-arm-right { transform: translate(-2px, -118px) rotate(7deg) }
-.mascot-hat { transform-box: fill-box }
-.mascot-pompom { transform-box: fill-box; transform-origin: center; animation: mascot-bob 2.6s ease-in-out infinite }
-.mascot-pulse { animation: mascot-pulse 1.7s ease-in-out infinite }
-.mascot-spin { animation: sts-spin 9s linear infinite }
-.mascot-swing { animation: mascot-swing 2.8s ease-in-out infinite }
+/* sprite internals */
+.pet-sprite { display: block; overflow: visible }
+.pet-sprite path, .pet-sprite ellipse, .pet-sprite circle, .pet-sprite rect { transition: fill .35s ease }
+.pet-sprite .pet-blink { animation: pet-blink 5.2s infinite }
+.pet-sprite .pet-iris { transition: transform .14s ease-out }
+.pet-sprite .pet-tail-cat { animation: pet-tail-cat 2.6s ease-in-out infinite }
+.pet-sprite .pet-tail-dog { animation: pet-tail-dog .55s ease-in-out infinite }
+.pet-sprite.is-walking .pet-tail-cat { animation-duration: 1s }
+.pet-sprite.is-walking .pet-leg-a { animation: pet-step .5s ease-in-out infinite }
+.pet-sprite.is-walking .pet-leg-b { animation: pet-step .5s ease-in-out -.25s infinite }
+.pet-sprite.is-walking .pet-ear-l { animation: pet-ear-l .5s ease-in-out infinite }
+.pet-sprite.is-walking .pet-ear-r { animation: pet-ear-r .5s ease-in-out infinite }
+.pet-sprite .pet-pompom, .pet-sprite .pet-bob { animation: pet-bob 2.2s ease-in-out infinite }
+.pet-sprite .pet-sway { animation: pet-sway 3s ease-in-out infinite }
+.pet-sprite .pet-wing { animation: pet-wing 1.8s ease-in-out infinite }
+.pet-sprite .pet-aura-spin { animation: sts-spin 16s linear infinite }
+.pet-sprite .pet-lift-l, .pet-sprite .pet-lift-r { transition: transform .45s cubic-bezier(.34, 1.45, .5, 1) }
 
-@media (max-width: 1023px) {
-  .login-mascot { width: 132px; height: 156px; transform: translate(-50%, -66%); }
-  @keyframes mascot-in { 0% { opacity: 0; transform: translate(-50%, -36%) scale(.8) } 100% { opacity: 1; transform: translate(-50%, -66%) scale(1) } }
+/* login: head behind the card, paws gripping over its top edge */
+.login-pet {
+  position: absolute; left: 50%; top: 0; width: 176px; height: 202px; pointer-events: none;
+  transform: translate(-50%, -73.9%);
+  animation: login-pet-in .7s cubic-bezier(.22, 1.2, .36, 1) both;
 }
+.login-pet.back { z-index: 0; filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .35)) }
+.login-pet.back .pet-sprite { animation: pet-peek 4.6s ease-in-out infinite }
+.login-pet.front { z-index: 20; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .25)) }
+.login-pet.covering .pet-lift-l { transform: translate(4px, -58px) scale(1.25) rotate(-7deg) }
+.login-pet.covering .pet-lift-r { transform: translate(-4px, -58px) scale(1.25) rotate(7deg) }
+@media (max-width: 1023px) { .login-pet { width: 140px; height: 161px } }
+
+/* companion on every page */
+.pet-companion { position: fixed; left: 0; bottom: 2px; z-index: 46; pointer-events: none; will-change: transform }
+.pet-body {
+  pointer-events: auto; position: relative; display: block; width: 100%; height: 100%; padding: 0; border: 0;
+  background: none; cursor: pointer; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .28));
+}
+.pet-body:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 4px; border-radius: 14px }
+.pet-body.levelup { animation: pet-levelup 1.1s cubic-bezier(.3, 1.4, .5, 1) }
+.pet-flip, .pet-waddle { width: 100%; height: 100% }
+.pet-waddle { transform-origin: 50% 90%; animation: pet-breathe 3s ease-in-out infinite }
+.pet-waddle.walking { animation: pet-waddle .5s ease-in-out infinite }
+.pet-bubbles { position: absolute; bottom: 100%; display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; pointer-events: none }
+.pet-bubble {
+  white-space: nowrap; padding: 4px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff;
+  background: rgba(15, 23, 42, .9); box-shadow: 0 6px 16px rgba(0, 0, 0, .25); animation: pet-bubble 3s ease both;
+}
+.pet-bubble.checkin { background: linear-gradient(90deg, #f97316, #ef4444) }
+.pet-bubble.levelup { background: linear-gradient(90deg, #f59e0b, #d946ef); font-size: 13px; animation-duration: 4.2s }
+.pet-heart { position: absolute; bottom: 70%; font-size: 16px; pointer-events: none; animation: pet-heart 1.1s ease-out forwards }
+.pet-ring { position: absolute; left: 50%; top: 55%; width: 90%; aspect-ratio: 1; border-radius: 50%; border: 3px solid #fbbf24; pointer-events: none; animation: pet-ring 1.1s ease-out forwards }
+
+/* the pet's panel (level / เติมไฟ / cat-or-dog / dress-up) — follows the app theme */
+.pet-panel {
+  position: fixed; z-index: 47; padding: 16px; border-radius: 18px; overflow-y: auto; max-height: calc(100vh - 150px);
+  background: var(--bg-card); border: 1px solid var(--border-color); box-shadow: 0 24px 60px -18px rgba(0, 0, 0, .55);
+}
+.pet-panel-x {
+  position: absolute; right: 10px; top: 10px; display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 999px; color: var(--text-muted); transition: background .15s;
+}
+.pet-panel-x:hover { background: var(--bg-card-alt) }
+.pet-panel-preview { width: 64px; height: 74px; flex-shrink: 0 }
+.pet-xpbar { background: linear-gradient(90deg, #f59e0b, #ef4444, #d946ef); box-shadow: 0 0 10px rgba(245, 158, 11, .5); transition: width .5s ease }
+.pet-flame { animation: pet-flame 1.2s ease-in-out infinite }
+.pet-lv { color: var(--text-accent) }
+:root[data-theme='light'] .pet-lv { color: var(--text-primary) } /* light theme keeps text black */
 
 @media (prefers-reduced-motion: reduce) {
   .fes-lantern, .fes-lantern > span, .fes-lantern i, .fes-krathong, .fes-krathong > span,
@@ -622,7 +679,8 @@ button:active:not(:disabled) { transform: scale(.97) }
   .fes-welcome-emoji::before, .fes-welcome-emoji::after { animation: none !important; opacity: 0 }
   .fes-welcome-card { opacity: 1 !important; transform: none !important }
   /* keep the auto-dismiss countdown visible so the popup still closes on its own */
-  .login-mascot, .mascot-bob, .mascot-aura, .mascot-eye, .mascot-pompom, .mascot-pulse, .mascot-spin, .mascot-swing { animation: none !important }
-  .mascot-arm { transition-duration: .2s }
-  /* the eyes still track typing and the paws still cover the password — just no idle motion */
+  .pet-sprite *, .pet-sprite, .pet-waddle, .login-pet, .pet-bubble, .pet-heart, .pet-ring, .pet-body.levelup, .pet-flame { animation: none !important }
+  .pet-sprite .pet-lift-l, .pet-sprite .pet-lift-r { transition-duration: .2s }
+  /* no idle motion and the companion doesn't walk — the eyes still follow, and the paws
+     still cover the password */
 }

@@ -5,7 +5,9 @@ import { useThemeStore } from '../store/useThemeStore'
 import { useAuthStore, useCurrentUser, usePendingCount, useIsAdmin, useIsOwner, useStealth } from '../store/useAuthStore'
 import { useStore } from '../store/useStore'
 import { useFestivalStore } from '../store/useFestivalStore'
+import { usePetStore } from '../store/usePetStore'
 import { FESTIVALS, PICKER_IDS, resolveFestival } from '../festival/festivals'
+import { SPECIES, levelInfo, pickCoat } from '../pet/petData'
 
 export default function SettingsModal({ open, onClose }) {
   const currentUser = useCurrentUser()
@@ -48,6 +50,7 @@ export default function SettingsModal({ open, onClose }) {
         <>
           <ThemeTab />
           <FestivalToggle />
+          <PetToggle />
           {isAdmin && <FestivalSection />}
           {isOwner && <OwnerModeSection />}
           {isAdmin && <ClearDataSection />}
@@ -89,6 +92,38 @@ function FestivalToggle() {
           className={`relative flex h-7 w-12 flex-shrink-0 items-center rounded-full transition ${enabled ? 'bg-blue-600' : 'bg-[var(--bg-hover-strong)]'}`}
         >
           <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${enabled ? 'left-6' : 'left-1'}`} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Show / hide your own pet (it can be hidden from its panel — this brings it back).
+function PetToggle() {
+  const ready = usePetStore((s) => s.ready)
+  const pet = usePetStore((s) => s.pet)
+  const owner = usePetStore((s) => s.owner)
+  if (!ready) return null
+  const shown = !pet.hidden
+  const coat = pickCoat(pet.species, owner)
+  return (
+    <div className="mt-3 rounded-xl border border-[var(--border-color)] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+            <span aria-hidden="true">{SPECIES[pet.species]?.emoji}</span> แสดงสัตว์เลี้ยงของฉัน
+          </div>
+          <p className="text-xs text-[var(--text-muted)]">
+            {coat.name} · Lv.{levelInfo(pet.xp).level} · 🔥 {pet.streak || 0} วัน — {shown ? 'เดินเล่นอยู่ด้านล่างจอ (กดที่น้องเพื่อแต่งตัว)' : 'ซ่อนอยู่'}
+          </p>
+        </div>
+        <button
+          onClick={() => usePetStore.getState().setHidden(shown)}
+          aria-pressed={shown}
+          title={shown ? 'ซ่อนสัตว์เลี้ยง' : 'แสดงสัตว์เลี้ยง'}
+          className={`relative flex h-7 w-12 flex-shrink-0 items-center rounded-full transition ${shown ? 'bg-blue-600' : 'bg-[var(--bg-hover-strong)]'}`}
+        >
+          <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${shown ? 'left-6' : 'left-1'}`} />
         </button>
       </div>
     </div>

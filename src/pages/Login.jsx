@@ -327,7 +327,7 @@ export default function Login() {
 
         {/* ---------- sign-in card (dark glass) with a festival mascot peeking behind it ---------- */}
         <div className="relative">
-        <LoginMascot festival={festival} gaze={gaze} covering={covering} />
+        <LoginMascot festival={festival} username={username} gaze={gaze} covering={covering} />
         <div
           className="glow-border on anim-fade-up relative z-10 rounded-2xl border border-white/12 p-6 shadow-2xl backdrop-blur-xl sm:p-7 [animation-delay:160ms]"
           style={{ background: t.card }}

@@ -14,12 +14,15 @@ const Stock = lazy(() => import('./pages/Stock'))
 const Reports = lazy(() => import('./pages/Reports'))
 const ProductList = lazy(() => import('./pages/ProductList'))
 const AuditLog = lazy(() => import('./pages/AuditLog'))
+// each user's pet walking along the bottom of every page (signed-in only)
+const PetCompanion = lazy(() => import('./components/PetCompanion'))
 import UpdatePrompt from './components/UpdatePrompt'
 import FestivalLayer from './components/FestivalLayer'
 import FestivalWelcome from './components/FestivalWelcome'
 import { useFestivalStore } from './store/useFestivalStore'
 import { useThemeStore } from './store/useThemeStore'
 import { useStore } from './store/useStore'
+import { usePetStore } from './store/usePetStore'
 import { useAuthStore, isAdminState } from './store/useAuthStore'
 
 // Gates the data-driven pages behind the initial Supabase fetch so they don't flash an
@@ -74,6 +77,14 @@ export default function App() {
     if (!approvedUserId) return
     useStore.getState().init()
     return () => useStore.getState().reset()
+  }, [approvedUserId])
+
+  // load this user's own pet (level, streak, outfit) and do today's เติมไฟ check-in
+  useEffect(() => {
+    if (!approvedUserId) return
+    const { session, profile } = useAuthStore.getState()
+    usePetStore.getState().init(session?.user, profile?.username)
+    return () => usePetStore.getState().reset()
   }, [approvedUserId])
 
   return (
@@ -163,6 +174,12 @@ export default function App() {
     <FestivalLayer />
     {/* celebratory "which festival" popup shown once after each fresh login */}
     <FestivalWelcome />
+    {/* the user's pet companion (hides itself on /login and when the user hides it) */}
+    {approvedUserId && (
+      <Suspense fallback={null}>
+        <PetCompanion />
+      </Suspense>
+    )}
     {/* "มีเวอร์ชันใหม่" popup — on every page, including login */}
     <UpdatePrompt />
     </>

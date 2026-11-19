@@ -3,6 +3,18 @@ import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { thaiCompare } from '../utils/format'
 import { ceToISO, isoToCE, todayDDMMYYYY } from '../utils/date'
 import { useAuthStore } from './useAuthStore'
+import { usePetStore } from './usePetStore'
+import { XP } from '../pet/petData'
+
+// The user's pet earns a little XP after a successful save (cosmetic only — it never
+// affects the stock data or calculations).
+function petXp(amount, label) {
+  try {
+    usePetStore.getState().gainXp(amount, label)
+  } catch {
+    /* never let the pet get in the way of saving */
+  }
+}
 
 function currentUsername() {
   try {
@@ -202,6 +214,7 @@ export const useStore = create((set, get) => ({
       return
     }
     await get().refetchProducts()
+    petXp(XP.product, 'เพิ่มสินค้า')
   },
 
   updateProduct: async (id, updates) => {
@@ -316,6 +329,7 @@ export const useStore = create((set, get) => ({
       return
     }
     await get().refetchMovements()
+    petXp(XP.stockIn, 'รับสินค้า')
   },
 
   updateStockIn: async (id, updates) => {
@@ -344,6 +358,7 @@ export const useStore = create((set, get) => ({
       return
     }
     await get().refetchMovements()
+    petXp(XP.stockOut, 'จ่ายสินค้า')
   },
 
   updateStockOut: async (id, updates) => {
