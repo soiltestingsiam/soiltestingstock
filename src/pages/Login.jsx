@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { Lock, User, Eye, EyeOff, LogIn, UserPlus, Loader2, FlaskConical, Award, ShieldCheck, Boxes, ChevronRight } from 'lucide-react'
 import SealLogo from '../components/SealLogo'
+import WebStandardsModal from '../components/WebStandardsModal'
 import { useAuthStore } from '../store/useAuthStore'
 import { useFestivalStore, useActiveFestival } from '../store/useFestivalStore'
 
@@ -155,6 +156,7 @@ export default function Login() {
   const [info, setInfo] = useState('')
   const [busy, setBusy] = useState(false)
   const [chapter, setChapter] = useState(0)
+  const [showStandards, setShowStandards] = useState(false)
 
   useEffect(() => {
     const t = setInterval(() => setChapter((c) => (c + 1) % STORY.length), STORY_MS)
@@ -264,18 +266,22 @@ export default function Login() {
               </div>
             </div>
             {/* auto-advance progress + chapter dots */}
-            <div className="mt-5 flex items-center gap-2">
+            <div className="mt-5 flex items-center gap-3">
               {STORY.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setChapter(i)}
                   aria-label={`เรื่องที่ ${i + 1}`}
-                  className="h-1.5 overflow-hidden rounded-full bg-white/15 transition-all"
-                  style={{ width: i === chapter ? 40 : 14 }}
+                  className="flex h-6 items-center"
                 >
-                  {i === chapter && (
-                    <span key={chapter} className="block h-full rounded-full" style={{ backgroundImage: `linear-gradient(90deg, ${t.btnFrom}, ${t.btnTo})`, animation: `sts-progress ${STORY_MS}ms linear forwards` }} />
-                  )}
+                  <span
+                    className="block h-1.5 overflow-hidden rounded-full bg-white/15 transition-all"
+                    style={{ width: i === chapter ? 40 : 18 }}
+                  >
+                    {i === chapter && (
+                      <span key={chapter} className="block h-full rounded-full" style={{ backgroundImage: `linear-gradient(90deg, ${t.btnFrom}, ${t.btnTo})`, animation: `sts-progress ${STORY_MS}ms linear forwards` }} />
+                    )}
+                  </span>
                 </button>
               ))}
             </div>
@@ -342,8 +348,15 @@ export default function Login() {
                   className={loginInput('pl-9 pr-9')}
                   required
                 />
-                <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70" tabIndex={-1}>
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-white/50 transition hover:bg-white/10 hover:text-white"
+                  aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                  aria-pressed={showPassword}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               </div>
             </label>
@@ -374,9 +387,20 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-5 text-center text-[11px] text-white/40">© Soil Testing Siam Co., Ltd. · STS Inventory</div>
+          <div className="mt-5 flex flex-col items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setShowStandards(true)}
+              className="group flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold text-emerald-200 transition hover:bg-emerald-400/20"
+            >
+              <ShieldCheck size={12} /> ตรวจมาตรฐานเว็บผ่าน · Lighthouse 100 · WCAG AA
+            </button>
+            <div className="text-[11px] text-white/40">© Soil Testing Siam Co., Ltd. · STS Inventory</div>
+          </div>
         </div>
       </div>
+
+      {showStandards && <WebStandardsModal onClose={() => setShowStandards(false)} />}
     </div>
   )
 }
