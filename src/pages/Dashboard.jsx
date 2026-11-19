@@ -9,8 +9,9 @@ import {
 
 export default function Dashboard() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[var(--bg-page)]">
-      <div className="aurora" aria-hidden="true">
+    <div className="relative min-h-screen overflow-hidden">
+      {/* fades out toward the bottom so it blends into the festival ground scene below */}
+      <div className="aurora" aria-hidden="true" style={{ WebkitMaskImage: 'linear-gradient(to bottom, #000 55%, transparent)', maskImage: 'linear-gradient(to bottom, #000 55%, transparent)' }}>
         <span style={{ width: 520, height: 520, top: '-16%', left: '-6%', background: 'radial-gradient(circle, #3b82f6, transparent 60%)', opacity: 0.3 }} />
         <span style={{ width: 460, height: 460, bottom: '-18%', right: '-8%', background: 'radial-gradient(circle, #6366f1, transparent 60%)', animationDelay: '-9s', opacity: 0.3 }} />
       </div>
