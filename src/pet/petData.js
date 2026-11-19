@@ -13,6 +13,22 @@ export const RARITY = {
   rare: { label: 'หายาก', color: '#38bdf8' },
   epic: { label: 'หายากมาก', color: '#c084fc' },
   legend: { label: 'ตำนาน', color: '#fbbf24' },
+  mythic: { label: 'พิเศษเฉพาะหน้าล็อกอิน', color: '#f472b6' },
+}
+
+// The login page's own cat — an exclusive coat that is NOT in the gacha pool, so nobody
+// can ever roll it. Always the same, whoever is typing.
+export const LOGIN_CAT = {
+  id: 'sts-jewel',
+  name: 'มณีสยาม',
+  rarity: 'mythic',
+  base: '#fdfbff',
+  shade: '#d4cdf0',
+  belly: '#ffffff',
+  pattern: 'jewel',
+  pc: '#f2b93b',
+  eye: '#3b78f0',
+  irisRing: '#f6c453',
 }
 
 // base / shade / belly(muzzle, chest) / pattern + pattern colours / iris colour(s)

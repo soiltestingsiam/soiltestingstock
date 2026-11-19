@@ -134,13 +134,20 @@ function FestivalSection() {
   const mode = useFestivalStore((s) => s.mode)
   const setMode = useFestivalStore((s) => s.setMode)
   const [busy, setBusy] = useState(null)
+  const [status, setStatus] = useState(null) // { kind: 'ok' | 'warn' | 'error', text }
   const autoActive = resolveFestival('auto')
 
   async function pick(m) {
     if (busy) return
     setBusy(m)
-    await setMode(m)
+    setStatus(null)
+    const res = await setMode(m)
     setBusy(null)
+    const label = m === 'auto' ? 'อัตโนมัติ' : FESTIVALS[m]?.label
+    if (res?.ok) setStatus({ kind: 'ok', text: `บันทึกแล้ว — ทุกคนจะเห็นธีม "${label}"` })
+    else if (res?.localOnly)
+      setStatus({ kind: 'warn', text: 'ใช้ได้เฉพาะเครื่องนี้ — ฐานข้อมูลยังไม่มีตารางตั้งค่า (ให้รัน supabase/migrations/005_app_settings.sql) จึงจะมีผลกับทุกคน' })
+    else setStatus({ kind: 'error', text: `บันทึกไม่สำเร็จ: ${res?.error?.message || 'ไม่ทราบสาเหตุ'} — ธีมยังเป็นค่าเดิม` })
   }
 
   const options = [
@@ -154,6 +161,21 @@ function FestivalSection() {
         <Sparkles size={16} className="text-[var(--text-accent)]" /> ธีมเทศกาล
       </div>
       <p className="mb-3 text-xs text-[var(--text-muted)]">เลือกธีมตกแต่งทั้งระบบ (มีผลกับผู้ใช้ทุกคน) — ตั้งอัตโนมัติให้เปลี่ยนตามเทศกาลเองก็ได้</p>
+      {status && (
+        <div
+          role="status"
+          className={`mb-3 rounded-lg px-3 py-2 text-xs font-medium ${
+            status.kind === 'ok'
+              ? 'bg-emerald-500/10 text-[var(--text-primary)]'
+              : status.kind === 'warn'
+                ? 'bg-amber-500/15 text-[var(--text-primary)]'
+                : 'bg-red-500/15 text-[var(--text-primary)]'
+          }`}
+        >
+          {status.kind === 'ok' ? '✓ ' : '⚠ '}
+          {status.text}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {options.map((o) => {
           const selected = mode === o.id

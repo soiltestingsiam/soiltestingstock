@@ -10,7 +10,16 @@ import { resolveFestival } from '../festival/festivals'
 //    stored only in this browser, so anyone who finds it busy can turn it off without
 //    affecting others.
 // When enabled is false the active festival resolves to 'none' (base colors, no
-// decorations). A last-known mode is cached in localStorage to avoid a flash on load.
+// decorations). The last-known mode is cached in localStorage to avoid a flash on load.
+//
+// Keeping every device in step with the admin's choice:
+//  - the value is read at start-up, AGAIN right after sign-in (a signed-out read is not
+//    allowed by the database unless migration 006 is installed) and whenever the tab
+//    comes back into view;
+//  - realtime pushes changes to open devices; the channel is re-joined after sign-in so it
+//    runs with the user's token;
+//  - a read that started before a newer local/realtime change is ignored (`seq`), so a
+//    slow start-up read can never undo a choice made a moment later.
 
 const LS_MODE = 'sts-festival-mode'
 const LS_ENABLED = 'sts-festival-enabled'
@@ -42,7 +51,30 @@ function applyAttr(mode, enabled) {
   return active
 }
 
+// The admin's current choice from the database (null when it can't be read).
+// Prefers get_festival_mode() (migration 006 — readable signed-out too, so the login page
+// matches), then falls back to the table (signed-in, approved users).
+async function fetchMode() {
+  try {
+    const { data, error } = await supabase.rpc('get_festival_mode')
+    if (!error && typeof data === 'string' && data) return data
+  } catch {
+    /* function not installed — fall back */
+  }
+  try {
+    const { data, error } = await supabase.from('app_settings').select('value').eq('key', SETTING_KEY).maybeSingle()
+    if (!error && data?.value) return data.value
+  } catch {
+    /* offline / table missing */
+  }
+  return null
+}
+
+// Postgres / PostgREST "the table isn't there" (migration 005 not installed)
+const isMissingTable = (e) => ['42P01', 'PGRST205', 'PGRST204'].includes(e?.code) || /does not exist|schema cache/i.test(e?.message || '')
+
 let channel = null
+let seq = 0 // bumped on every newer change; an older in-flight read is then ignored
 
 export const useFestivalStore = create((set, get) => ({
   mode: readLocalMode(), // 'auto' | festival id (global)
@@ -66,42 +98,74 @@ export const useFestivalStore = create((set, get) => ({
 
   refresh: () => set({ active: applyAttr(get().mode, get().enabled) }),
 
+  // pull the admin's current choice from the database
+  sync: async () => {
+    if (!isSupabaseConfigured) return
+    const started = seq
+    const v = await fetchMode()
+    if (v && started === seq && v !== get().mode) get()._reapply(v)
+  },
+
   init: async () => {
     get().refresh()
     if (!isSupabaseConfigured) {
       set({ loaded: true })
       return
     }
-    try {
-      const { data } = await supabase.from('app_settings').select('value').eq('key', SETTING_KEY).maybeSingle()
-      if (data?.value) get()._reapply(data.value)
-    } catch {
-      /* table missing / offline → keep local (auto) */
-    }
+    await get().sync()
     set({ loaded: true })
     get()._subscribe()
   },
 
+  // called when a user signs in: read the real value and re-join realtime with their token
+  onSignedIn: () => {
+    if (!isSupabaseConfigured) return
+    get().sync()
+    get()._subscribe()
+  },
+
   _subscribe: () => {
-    if (channel || !isSupabaseConfigured) return
+    if (!isSupabaseConfigured) return
+    if (channel) {
+      try {
+        supabase.removeChannel(channel)
+      } catch {
+        /* ignore */
+      }
+      channel = null
+    }
     channel = supabase
       .channel('sts-app-settings')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings', filter: `key=eq.${SETTING_KEY}` }, (payload) => {
         const v = payload.new?.value
-        if (v) get()._reapply(v)
+        if (v) {
+          seq += 1
+          get()._reapply(v)
+        }
       })
       .subscribe()
   },
 
-  // admin only: set WHICH festival, for everyone (writes to app_settings)
+  // admin only: set WHICH festival, for everyone (writes to app_settings).
+  // Returns { ok } or { ok:false, error, localOnly } so the picker can say what happened.
   setMode: async (mode) => {
+    seq += 1
+    const prev = get().mode
     get()._reapply(mode)
     if (!isSupabaseConfigured) return { ok: true }
     const { error } = await supabase
       .from('app_settings')
       .upsert({ key: SETTING_KEY, value: mode, updated_at: new Date().toISOString() })
-    if (error) return { ok: false, error }
-    return { ok: true }
+    if (!error) return { ok: true }
+    if (isMissingTable(error)) {
+      // 005 not installed: keep it on this device only and say so
+      return { ok: false, error, localOnly: true }
+    }
+    // not saved (e.g. no permission): show what the database really has
+    seq += 1
+    const real = await fetchMode()
+    get()._reapply(real || prev)
+    return { ok: false, error }
   },
 
   // any user: show / hide the festival on THIS device only

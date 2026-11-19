@@ -79,6 +79,16 @@ export default function App() {
     return () => useStore.getState().reset()
   }, [approvedUserId])
 
+  // the admin's festival choice: re-read it once signed in (a signed-out read isn't
+  // allowed), and again whenever the tab comes back into view
+  useEffect(() => {
+    if (!approvedUserId) return
+    useFestivalStore.getState().onSignedIn()
+    const onVis = () => document.visibilityState === 'visible' && useFestivalStore.getState().sync()
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [approvedUserId])
+
   // load this user's own pet (level, streak, outfit) and do today's เติมไฟ check-in
   useEffect(() => {
     if (!approvedUserId) return

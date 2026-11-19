@@ -317,7 +317,7 @@ function AuraItem({ id, u }) {
 
 /* ---------------------------------- eye ---------------------------------- */
 
-function Eye({ cx, cy, rx, ry, side, u, isCat }) {
+function Eye({ cx, cy, rx, ry, side, u, isCat, ring }) {
   return (
     <g className="pet-blink" style={{ transformOrigin: `${cx}px ${cy}px` }}>
       <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="#fff" />
@@ -325,6 +325,7 @@ function Eye({ cx, cy, rx, ry, side, u, isCat }) {
         <g className="pet-iris" style={{ transform: 'translate(calc(var(--gx, 0) * 4.6px), calc(var(--gy, 0) * 4.2px))' }}>
           <circle cx={cx} cy={cy + 1} r={isCat ? 11.6 : 12.6} fill={`url(#iris${side}-${u})`} />
           {isCat ? <ellipse cx={cx} cy={cy + 1} rx="4.1" ry="8.6" fill="#17111c" /> : <circle cx={cx} cy={cy + 1} r="7.4" fill="#17111c" />}
+          {ring && <circle cx={cx} cy={cy + 1} r={isCat ? 10.8 : 11.8} fill="none" stroke={ring} strokeWidth="1.8" opacity=".9" />}
         </g>
         <ellipse cx={cx} cy={cy + ry - 2} rx={rx} ry="5" fill="#000" opacity=".06" />
       </g>
@@ -430,6 +431,17 @@ export default function PetSprite({
         <stop offset="0%" stopColor="#818cf8" />
         <stop offset="100%" stopColor="#ec4899" />
       </linearGradient>
+      <linearGradient id={`jear-${u}`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#ffe08a" />
+        <stop offset="26%" stopColor={c.pc || '#f2b93b'} />
+        <stop offset="42%" stopColor={headBase} />
+        <stop offset="100%" stopColor={c.shade} />
+      </linearGradient>
+      <linearGradient id={`gem-${u}`} x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#fff6c9" />
+        <stop offset="50%" stopColor="#f6c453" />
+        <stop offset="100%" stopColor="#c9881a" />
+      </linearGradient>
       <radialGradient id={`aura-${u}`}>
         <stop offset="0%" stopColor="rgba(255,214,102,.55)" />
         <stop offset="70%" stopColor="rgba(255,214,102,.14)" />
@@ -439,8 +451,9 @@ export default function PetSprite({
   )
 
   /* ---- ears ---- */
-  const catEarL = c.pattern === 'points' || c.pattern === 'calico' ? c.pc : headBase
-  const catEarR = c.pattern === 'points' ? c.pc : c.pattern === 'calico' ? c.pc2 : headBase
+  const jewel = c.pattern === 'jewel'
+  const catEarL = jewel ? `url(#jear-${u})` : c.pattern === 'points' || c.pattern === 'calico' ? c.pc : headBase
+  const catEarR = jewel ? `url(#jear-${u})` : c.pattern === 'points' ? c.pc : c.pattern === 'calico' ? c.pc2 : headBase
   const earsBefore = isCat ? (
     <g>
       <path d="M50 76 L54 24 Q57 15 65 20 L96 50 Z" fill={catEarL} stroke={outline} strokeOpacity=".45" strokeWidth="2" strokeLinejoin="round" />
@@ -527,7 +540,22 @@ export default function PetSprite({
     pattern = <ellipse cx="100" cy="116" rx="30" ry="22" fill={c.pc} opacity=".55" />
   } else if (p === 'bangkaew') {
     pattern = <ellipse cx="77" cy="86" rx="21" ry="19" fill={c.pc} opacity=".92" />
+  } else if (p === 'jewel') {
+    pattern = (
+      <g>
+        <ellipse cx="100" cy="132" rx="70" ry="26" fill="#b9b0ea" opacity=".28" />
+        <ellipse cx="86" cy="56" rx="40" ry="16" fill="#fff" opacity=".55" />
+      </g>
+    )
   }
+  const jewelMarks = jewel && (
+    <g>
+      <path d="M100 51 L106 60 L100 70 L94 60 Z" fill={`url(#gem-${u})`} stroke="#b7791f" strokeWidth="1" />
+      <path d="M97.5 57 L100 53.5" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" opacity=".9" />
+      <path className="pet-twinkle" d="M55 99 l1.6 3.4 3.4 1.6 -3.4 1.6 -1.6 3.4 -1.6 -3.4 -3.4 -1.6 3.4 -1.6 Z" fill="#fde68a" style={{ transformOrigin: '55px 104px' }} />
+      <path className="pet-twinkle pet-twinkle-2" d="M145 99 l1.6 3.4 3.4 1.6 -3.4 1.6 -1.6 3.4 -1.6 -3.4 -3.4 -1.6 3.4 -1.6 Z" fill="#fde68a" style={{ transformOrigin: '145px 104px' }} />
+    </g>
+  )
 
   /* ---- body pattern (walk pose) ---- */
   let bodyPattern = null
@@ -579,8 +607,8 @@ export default function PetSprite({
     </g>
   ) : (
     <g>
-      <Eye cx={L[0]} cy={L[1]} rx={erx} ry={ery} side="L" u={u} isCat={isCat} />
-      <Eye cx={R[0]} cy={R[1]} rx={erx} ry={ery} side="R" u={u} isCat={isCat} />
+      <Eye cx={L[0]} cy={L[1]} rx={erx} ry={ery} side="L" u={u} isCat={isCat} ring={c.irisRing} />
+      <Eye cx={R[0]} cy={R[1]} rx={erx} ry={ery} side="R" u={u} isCat={isCat} ring={c.irisRing} />
     </g>
   )
 
@@ -615,6 +643,7 @@ export default function PetSprite({
       {muzzle}
       <ellipse cx={isCat ? 60 : 62} cy="110" rx="9" ry="5" fill="#ff8fb0" opacity=".5" />
       <ellipse cx={isCat ? 140 : 138} cy="110" rx="9" ry="5" fill="#ff8fb0" opacity=".5" />
+      {jewelMarks}
       {eyes}
       {noseMouth}
       {floppy}
