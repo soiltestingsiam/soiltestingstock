@@ -24,8 +24,15 @@ async function captureElement(element) {
   // Match the current theme's background, otherwise the light theme's black text would be
   // captured on the dark theme's background (black on black). The dark theme keeps the
   // exact background it always had.
-  const isLight = document.documentElement.getAttribute('data-theme') === 'light'
-  const themeBg = getComputedStyle(document.documentElement).getPropertyValue('--bg-card').trim()
+  // The festival theme is deliberately EXCLUDED from exports: read the base --bg-card with
+  // data-festival momentarily off (synchronous, no visible flash), and strip it from the
+  // clone below so the PDF is never seasonally tinted.
+  const root = document.documentElement
+  const isLight = root.getAttribute('data-theme') === 'light'
+  const festival = root.getAttribute('data-festival')
+  if (festival) root.removeAttribute('data-festival')
+  const themeBg = getComputedStyle(root).getPropertyValue('--bg-card').trim()
+  if (festival) root.setAttribute('data-festival', festival)
   const backgroundColor = isLight ? themeBg || '#ffffff' : '#0B0F19'
   const scale = 2
   let breaks = []
@@ -35,6 +42,7 @@ async function captureElement(element) {
     width: fullWidth,
     windowWidth: fullWidth + 400,
     onclone: (doc, clone) => {
+      doc.documentElement.removeAttribute('data-festival')
       clone.style.width = `${fullWidth}px`
       clone.querySelectorAll('.overflow-x-auto, .overflow-auto').forEach((el) => {
         el.style.overflow = 'visible'

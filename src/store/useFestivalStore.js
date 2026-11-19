@@ -2,25 +2,38 @@ import { create } from 'zustand'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { resolveFestival } from '../festival/festivals'
 
-// Festival theme state. The admin's choice is stored globally in app_settings
-// (migration 005) so every device sees the same festival, with realtime updates.
-// Default 'auto' resolves the festival from today's date — so even before any admin
-// touches it, everyone automatically gets the in-season theme (e.g. ลอยกระทง in Nov).
-// A last-known value is cached in localStorage to avoid a flash before the DB loads.
+// Festival theme state.
+//  - mode: WHICH festival. Chosen by the admin and stored globally in app_settings
+//    (migration 005), so every device sees the same festival, with realtime updates.
+//    Default 'auto' resolves from today's date (e.g. ลอยกระทง in November).
+//  - enabled: WHETHER this device shows the festival at all. A per-user on/off switch,
+//    stored only in this browser, so anyone who finds it busy can turn it off without
+//    affecting others.
+// When enabled is false the active festival resolves to 'none' (base colors, no
+// decorations). A last-known mode is cached in localStorage to avoid a flash on load.
 
-const LS_KEY = 'sts-festival-mode'
+const LS_MODE = 'sts-festival-mode'
+const LS_ENABLED = 'sts-festival-enabled'
 const SETTING_KEY = 'festival_mode'
 
 function readLocalMode() {
   try {
-    return localStorage.getItem(LS_KEY) || 'auto'
+    return localStorage.getItem(LS_MODE) || 'auto'
   } catch {
     return 'auto'
   }
 }
 
-function applyAttr(mode) {
-  const active = resolveFestival(mode)
+function readEnabled() {
+  try {
+    return localStorage.getItem(LS_ENABLED) !== 'off'
+  } catch {
+    return true
+  }
+}
+
+function applyAttr(mode, enabled) {
+  const active = enabled ? resolveFestival(mode) : 'none'
   try {
     document.documentElement.setAttribute('data-festival', active)
   } catch {
@@ -32,24 +45,23 @@ function applyAttr(mode) {
 let channel = null
 
 export const useFestivalStore = create((set, get) => ({
-  mode: readLocalMode(), // 'auto' | festival id
-  active: applyAttr(readLocalMode()), // the festival currently shown
+  mode: readLocalMode(), // 'auto' | festival id (global)
+  enabled: readEnabled(), // per-device show/hide
+  active: applyAttr(readLocalMode(), readEnabled()), // what is actually shown
   loaded: false,
 
-  // apply a mode locally (cache + <html> attribute) without writing to the DB
-  _applyLocal: (mode) => {
+  // apply the current mode + enabled to the <html> attribute and cache the mode
+  _reapply: (mode = get().mode) => {
     try {
-      localStorage.setItem(LS_KEY, mode)
+      localStorage.setItem(LS_MODE, mode)
     } catch {
       /* ignore */
     }
-    set({ mode, active: applyAttr(mode) })
+    set({ mode, active: applyAttr(mode, get().enabled) })
   },
 
-  // re-resolve 'auto' against the current date (call e.g. at app start / past midnight)
-  refresh: () => set({ active: applyAttr(get().mode) }),
+  refresh: () => set({ active: applyAttr(get().mode, get().enabled) }),
 
-  // read the global setting once, then keep it live
   init: async () => {
     get().refresh()
     if (!isSupabaseConfigured) {
@@ -58,7 +70,7 @@ export const useFestivalStore = create((set, get) => ({
     }
     try {
       const { data } = await supabase.from('app_settings').select('value').eq('key', SETTING_KEY).maybeSingle()
-      if (data?.value) get()._applyLocal(data.value)
+      if (data?.value) get()._reapply(data.value)
     } catch {
       /* table missing / offline → keep local (auto) */
     }
@@ -72,20 +84,30 @@ export const useFestivalStore = create((set, get) => ({
       .channel('sts-app-settings')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings', filter: `key=eq.${SETTING_KEY}` }, (payload) => {
         const v = payload.new?.value
-        if (v) get()._applyLocal(v)
+        if (v) get()._reapply(v)
       })
       .subscribe()
   },
 
-  // admin only: set the festival for everyone (writes to app_settings)
+  // admin only: set WHICH festival, for everyone (writes to app_settings)
   setMode: async (mode) => {
-    get()._applyLocal(mode)
+    get()._reapply(mode)
     if (!isSupabaseConfigured) return { ok: true }
     const { error } = await supabase
       .from('app_settings')
       .upsert({ key: SETTING_KEY, value: mode, updated_at: new Date().toISOString() })
     if (error) return { ok: false, error }
     return { ok: true }
+  },
+
+  // any user: show / hide the festival on THIS device only
+  setEnabled: (on) => {
+    try {
+      localStorage.setItem(LS_ENABLED, on ? 'on' : 'off')
+    } catch {
+      /* ignore */
+    }
+    set({ enabled: on, active: applyAttr(get().mode, on) })
   },
 }))
 
