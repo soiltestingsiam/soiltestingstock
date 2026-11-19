@@ -354,16 +354,24 @@ button:active:not(:disabled) { transform: scale(.97) }
    ====================================================================== */
 
 /* ---- palette tints (ride on top of the dark / light base) ---- */
-:root[data-festival='loykrathong'] { --bg-page: #0a0a22; --text-accent: #ffd27f; --fes-glow: #ffb24d; }
-:root[data-theme='light'][data-festival='loykrathong'] { --bg-page: #fdf2e0; --fes-glow: #e07b1a; }
-:root[data-festival='halloween'] { --bg-page: #150a22; --text-accent: #ff8a3d; --fes-glow: #ff7518; }
-:root[data-theme='light'][data-festival='halloween'] { --bg-page: #f3ecfb; --fes-glow: #d2601a; }
-:root[data-festival='christmas'] { --bg-page: #081526; --text-accent: #8fe0b0; --fes-glow: #e23b4b; }
-:root[data-theme='light'][data-festival='christmas'] { --bg-page: #eef7f1; --fes-glow: #c0392b; }
-:root[data-festival='songkran'] { --bg-page: #06202e; --text-accent: #7fe3ff; --fes-glow: #2bb6e8; }
-:root[data-theme='light'][data-festival='songkran'] { --bg-page: #e8f7fd; --fes-glow: #1b9fd6; }
-:root[data-festival='newyear'] { --bg-page: #09091c; --text-accent: #ffd27f; --fes-glow: #ffcf6a; }
-:root[data-theme='light'][data-festival='newyear'] { --bg-page: #f1f0fb; --fes-glow: #b8860b; }
+/* dark base: tint page + cards + accent; light base: tint page + card only (text stays
+   black for readability). The PDF export strips data-festival so exports are never tinted. */
+:root[data-festival='loykrathong'] { --bg-page: #0c0a24; --bg-card: #16122f; --bg-card-alt: #1d1840; --text-accent: #ffd27f; --fes-glow: #ffb24d; }
+:root[data-theme='light'][data-festival='loykrathong'] { --bg-page: #fdf1dd; --bg-card: #fffaf1; --bg-card-alt: #fbf1e2; --fes-glow: #e07b1a; }
+
+:root[data-festival='halloween'] { --bg-page: #180a28; --bg-card: #211138; --bg-card-alt: #2a1646; --text-accent: #ff9248; --fes-glow: #ff7518; }
+:root[data-theme='light'][data-festival='halloween'] { --bg-page: #f3eafc; --bg-card: #fdfbff; --bg-card-alt: #f6effc; --fes-glow: #d2601a; }
+
+/* คริสต์มาส — แดง/เขียว */
+:root[data-festival='christmas'] { --bg-page: #0a2016; --bg-card: #102a1d; --bg-card-alt: #153521; --text-accent: #ff6b6b; --fes-glow: #e23b4b; }
+:root[data-theme='light'][data-festival='christmas'] { --bg-page: #ecf6ef; --bg-card: #f8fdfa; --bg-card-alt: #eef8f1; --fes-glow: #c0392b; }
+
+/* สงกรานต์ — โทนสว่าง/สดชื่น */
+:root[data-festival='songkran'] { --bg-page: #0b3446; --bg-card: #124457; --bg-card-alt: #165064; --text-accent: #8af0ff; --fes-glow: #2bb6e8; }
+:root[data-theme='light'][data-festival='songkran'] { --bg-page: #e4f6fd; --bg-card: #f6fdff; --bg-card-alt: #e9f7fc; --fes-glow: #1b9fd6; }
+
+:root[data-festival='newyear'] { --bg-page: #0b0b20; --bg-card: #16163a; --bg-card-alt: #1c1c46; --text-accent: #ffd27f; --fes-glow: #ffcf6a; }
+:root[data-theme='light'][data-festival='newyear'] { --bg-page: #f0effb; --bg-card: #fbfbff; --bg-card-alt: #f2f1fb; --fes-glow: #b8860b; }
 
 /* ---- the fixed decoration layer ---- */
 .fes-layer { position: fixed; inset: 0; z-index: 45; overflow: hidden; pointer-events: none; opacity: .92 }
@@ -379,11 +387,13 @@ button:active:not(:disabled) { transform: scale(.97) }
   radial-gradient(90% 60% at 10% 0%, rgba(124,58,237,.3), transparent 60%),
   radial-gradient(90% 60% at 95% 10%, rgba(124,58,237,.26), transparent 60%); }
 .fes-vignette.christmas { background:
-  radial-gradient(120% 55% at 50% -10%, rgba(120,190,255,.2), transparent 60%),
-  radial-gradient(100% 50% at 50% 115%, rgba(226,59,75,.16), transparent 60%); }
+  radial-gradient(90% 55% at 12% 0%, rgba(34,197,94,.28), transparent 60%),
+  radial-gradient(90% 55% at 88% 0%, rgba(226,59,75,.26), transparent 60%),
+  radial-gradient(100% 50% at 50% 115%, rgba(226,59,75,.2), transparent 60%); }
 .fes-vignette.songkran { background:
-  radial-gradient(120% 60% at 50% -10%, rgba(80,210,255,.22), transparent 60%),
-  radial-gradient(100% 50% at 50% 115%, rgba(40,180,230,.2), transparent 60%); }
+  radial-gradient(120% 65% at 50% -10%, rgba(120,230,255,.34), transparent 62%),
+  radial-gradient(90% 55% at 15% 110%, rgba(60,200,245,.28), transparent 60%),
+  radial-gradient(90% 55% at 85% 110%, rgba(150,240,255,.24), transparent 60%); }
 .fes-vignette.newyear { background:
   radial-gradient(100% 60% at 50% -5%, rgba(255,210,120,.22), transparent 60%),
   radial-gradient(90% 50% at 15% 100%, rgba(99,102,241,.22), transparent 60%),

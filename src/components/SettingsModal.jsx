@@ -47,6 +47,7 @@ export default function SettingsModal({ open, onClose }) {
       {tab === 'theme' || !isAdmin ? (
         <>
           <ThemeTab />
+          <FestivalToggle />
           {isAdmin && <FestivalSection />}
           {isOwner && <OwnerModeSection />}
           {isAdmin && <ClearDataSection />}
@@ -61,6 +62,39 @@ export default function SettingsModal({ open, onClose }) {
 
 // Admin-only: pick the seasonal theme for EVERYONE (saved globally + realtime), or leave
 // it on "อัตโนมัติ" to follow the calendar (e.g. ลอยกระทง in November, ฮาโลวีน late Oct).
+// Everyone: show / hide the seasonal decorations & colors on their own device.
+function FestivalToggle() {
+  const enabled = useFestivalStore((s) => s.enabled)
+  const setEnabled = useFestivalStore((s) => s.setEnabled)
+  const mode = useFestivalStore((s) => s.mode)
+  const active = resolveFestival(mode)
+  const current = FESTIVALS[active] ?? FESTIVALS.none
+  return (
+    <div className={`mt-6 rounded-xl border p-4 ${enabled ? 'border-[var(--border-color)]' : 'border-[var(--border-color)] opacity-90'}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+            <Sparkles size={16} className="text-[var(--text-accent)]" /> แสดงธีมเทศกาล
+          </div>
+          <p className="text-xs text-[var(--text-muted)]">
+            {enabled
+              ? `เปิดอยู่ — ตอนนี้: ${current.emoji} ${current.label}`
+              : 'ปิดอยู่ — ใช้สีปกติ ไม่มีของตกแต่งเทศกาล (เฉพาะเครื่องนี้)'}
+          </p>
+        </div>
+        <button
+          onClick={() => setEnabled(!enabled)}
+          aria-pressed={enabled}
+          title={enabled ? 'ปิดธีมเทศกาล' : 'เปิดธีมเทศกาล'}
+          className={`relative flex h-7 w-12 flex-shrink-0 items-center rounded-full transition ${enabled ? 'bg-blue-600' : 'bg-[var(--bg-hover-strong)]'}`}
+        >
+          <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${enabled ? 'left-6' : 'left-1'}`} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function FestivalSection() {
   const mode = useFestivalStore((s) => s.mode)
   const setMode = useFestivalStore((s) => s.setMode)

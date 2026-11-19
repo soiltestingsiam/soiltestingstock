@@ -387,6 +387,7 @@ async function capturePage(el) {
     // foreignObject only captures what sits at the document's top-left, so bring the
     // (otherwise off-screen) page there inside the clone
     onclone: (doc, clone) => {
+      doc.documentElement.removeAttribute('data-festival') // exports are never festival-tinted
       clone.parentElement.style.left = '0px'
       clone.parentElement.style.top = '0px'
     },
