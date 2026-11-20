@@ -221,6 +221,26 @@ export default function Login() {
   // the mascot covers its eyes while you type a hidden password; reveal it and it peeks
   const covering = (focusField === 'password' || focusField === 'confirm') && !showPassword
   const trackGaze = (e) => setGaze(caretGaze(e.currentTarget))
+  // the mascot says hello when the page opens, and waves now and then while you're idle
+  const [waving, setWaving] = useState(false)
+  const [hello, setHello] = useState(false)
+  useEffect(() => {
+    const ts = []
+    const wave = () => {
+      setWaving(true)
+      ts.push(setTimeout(() => setWaving(false), 1300))
+    }
+    ts.push(setTimeout(() => setHello(true), 900))
+    ts.push(setTimeout(wave, 1000))
+    ts.push(setTimeout(() => setHello(false), 4200))
+    const every = setInterval(() => {
+      if (!document.activeElement || document.activeElement === document.body) wave()
+    }, 9000)
+    return () => {
+      ts.forEach(clearTimeout)
+      clearInterval(every)
+    }
+  }, [])
 
   useEffect(() => {
     const t = setInterval(() => setChapter((c) => (c + 1) % STORY.length), STORY_MS)
@@ -366,11 +386,18 @@ export default function Login() {
         {/* the top margin reserves room for the mascot's head, so it is never cut off by
             the top of the screen */}
         <div className="relative mt-[124px] lg:mt-[146px]">
-        <LoginMascot festival={festival} gaze={gaze} covering={covering} />
+        {/* stage lighting behind the card (Grand / Showstopper) */}
+        <div className="login-beams" aria-hidden="true" style={{ '--beam-c': t.glow[0], '--beam-c2': t.glow[1] }}>
+          <span />
+          <span />
+          <span />
+        </div>
+        <LoginMascot festival={festival} gaze={gaze} covering={covering} waving={waving && !focusField} hello={hello} />
         <div
           className="glow-border on anim-fade-up relative z-10 rounded-2xl border border-white/12 p-6 shadow-2xl backdrop-blur-xl sm:p-7 [animation-delay:160ms]"
           style={{ background: t.card }}
         >
+          <span className="login-sheen" aria-hidden="true" />
           <div className="mb-5 text-center">
             <div className="text-lg font-bold text-white">ยินดีต้อนรับ</div>
             <div className="mt-0.5 text-xs text-white/55">เข้าสู่ระบบบริหารคลังสินค้า STS</div>

@@ -8,7 +8,7 @@ import { LOGIN_CAT, resolveOutfit } from '../pet/petData'
 //  - it wears the active festival's outfit, inside a soft golden aura.
 // Purely decorative: aria-hidden, pointer-events none.
 
-export default function LoginMascot({ festival = 'none', gaze = { x: 0, y: 0 }, covering = false }) {
+export default function LoginMascot({ festival = 'none', gaze = { x: 0, y: 0 }, covering = false, waving = false, hello = false }) {
   const outfit = { ...resolveOutfit(festival), aura: 'goldaura' }
   const vars = { '--gx': gaze.x, '--gy': gaze.y }
 
@@ -17,7 +17,12 @@ export default function LoginMascot({ festival = 'none', gaze = { x: 0, y: 0 }, 
       <div className="login-pet back" aria-hidden="true">
         <PetSprite species="cat" coat={LOGIN_CAT} outfit={outfit} pose="peek" layer="back" style={vars} />
       </div>
-      <div className={`login-pet front ${covering ? 'covering' : ''}`} aria-hidden="true">
+      {hello && !covering && (
+        <div className="login-hello" aria-hidden="true">
+          สวัสดีครับ 👋
+        </div>
+      )}
+      <div className={`login-pet front ${covering ? 'covering' : waving ? 'waving' : ''}`} aria-hidden="true">
         <PetSprite species="cat" coat={LOGIN_CAT} outfit={outfit} pose="peek" layer="front" style={vars} />
       </div>
     </>

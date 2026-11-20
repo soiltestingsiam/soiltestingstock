@@ -1,4 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { emitFx } from '../lib/fxBus'
+import { play } from '../lib/sfx'
+import { useSpectacle } from '../store/useSpectacleStore'
 import { rand, LoyDefs, SkyLantern, SkyLanterns, LoyMoon, Fireflies, Twinkles, Bat, Snow, Heart, ChineseLantern, Balloon, Blossom } from '../festival/parts'
 import { GROUNDS, BURSTS } from '../festival/grounds'
 
@@ -286,25 +289,136 @@ function Burst({ x, y, burst }) {
   )
 }
 
-function Ground({ festival }) {
+// the surprise greetings behind each festival's secrets
+const SECRETS = {
+  loykrathong: '🪷 ความลับของสายน้ำ: ขอให้ความเหนื่อยทั้งปีลอยไปกับกระทง!',
+  halloween: '🎃 บู้! เจอผีประจำคลังแล้ว — แต่สต็อกไม่หายไปไหนแน่นอน',
+  christmas: '🎁 ซานต้าแอบนับสต็อกให้แล้ว ขอให้ยอดตรงทุกบรรทัด!',
+  newyear: '🎆 สวัสดีปีใหม่! ขอให้ยอดยกมาปีหน้าสวยงาม',
+  chinesenewyear: '🧧 ซินเจียยู่อี่ — ขอให้ของเข้าเยอะ ของออกคล่อง!',
+  valentine: '💖 คลังนี้มีแต่ความรัก (และสต็อกที่ครบถ้วน)',
+  songkran: '💦 สาดความสดชื่นให้ทีมคลังสินค้าทุกคน!',
+  mothersday: '🌼 ขอบคุณแม่ทุกคน — กลับบ้านไปกอดแม่ด้วยนะ',
+  fathersday: '💛 ขอบคุณพ่อทุกคน — ขอให้สุขภาพแข็งแรงนะครับ',
+  anniversary: '🎉 ขอบคุณทุกคนที่ร่วมสร้าง STS มาด้วยกัน!',
+}
+const FINALE_CLICKS = 7 // clicks on the ground within FINALE_MS
+const FINALE_MS = 4000
+
+function Ground({ festival, onSecret }) {
   const Scene = GROUNDS[festival]
   const burst = BURSTS[festival]
   const [fx, setFx] = useState([])
+  const clicks = useRef([])
   if (!Scene) return null
+
+  const pop = (x, y) => {
+    const id = `${Date.now()}-${Math.random()}`
+    setFx((f) => [...f.slice(-10), { id, x, y }])
+    setTimeout(() => setFx((f) => f.filter((p) => p.id !== id)), 3200)
+  }
+
+  // the big finale: bursts all along the ground
+  const finale = (r) => {
+    for (let i = 0; i < 7; i++) setTimeout(() => pop(r.width * (0.08 + i * 0.14), r.height * (0.35 + (i % 3) * 0.15)), i * 140)
+  }
+
   const onClick = (e) => {
     const r = e.currentTarget.getBoundingClientRect()
-    const id = `${Date.now()}-${Math.random()}`
-    setFx((f) => [...f.slice(-6), { id, x: e.clientX - r.left, y: e.clientY - r.top }])
-    setTimeout(() => setFx((f) => f.filter((p) => p.id !== id)), 3200)
+    pop(e.clientX - r.left, e.clientY - r.top)
+    // a prop that was clicked wiggles
+    const prop = e.target.closest?.('.fes-at')
+    if (prop) {
+      prop.classList.remove('poked')
+      void prop.offsetWidth
+      prop.classList.add('poked')
+      play('click')
+    }
+    // secret 1: the hidden star
+    if (e.target.closest?.('.fes-secret')) {
+      finale(r)
+      onSecret(SECRETS[festival] || '✨ คุณค้นพบความลับของเทศกาล!', 'star')
+      return
+    }
+    // secret 2: click the ground quickly 7 times
+    const now = Date.now()
+    clicks.current = [...clicks.current.filter((t) => now - t < FINALE_MS), now]
+    if (clicks.current.length >= FINALE_CLICKS) {
+      clicks.current = []
+      finale(r)
+      onSecret('🎇 โหมดฉลองเต็มพิกัด! คุณค้นพบความลับของเทศกาล', 'finale')
+    }
   }
   return (
     <div className={`fes-ground ${festival}`} onClick={onClick} title="คลิกเล่นได้ ✨" aria-hidden="true">
+      {/* far layer: misty hills tinted by the festival (depth) */}
+      <div className="fes-ground-far" />
       <div className="fes-ground-scene">
         <Scene />
       </div>
+      {/* near layer: a few motes drifting in front */}
+      <div className="fes-ground-near">
+        {Array.from({ length: 6 }, (_, i) => (
+          <span key={i} style={{ left: `${8 + i * 16 + rand(i + 901) * 6}%`, animationDelay: `${-rand(i + 903) * 6}s`, animationDuration: `${5 + rand(i + 905) * 4}s` }} />
+        ))}
+      </div>
+      {/* a hidden star — click it */}
+      <span className="fes-secret" style={{ left: `${86 + rand(festival.length) * 8}%` }}>★</span>
       {fx.map((p) => (
         <Burst key={p.id} x={p.x} y={p.y} burst={burst} />
       ))}
+    </div>
+  )
+}
+
+// Gentle pointer parallax for the festival layers: each layer drifts a few px the other
+// way from the pointer (further = less). Capped, eased, desktop + Grand level only, never
+// with reduced motion. Writes two CSS variables; the layers use `translate`.
+function useParallax(enabled) {
+  useEffect(() => {
+    if (!enabled) return undefined
+    const root = document.documentElement
+    let tx = 0
+    let ty = 0
+    let x = 0
+    let y = 0
+    let raf = 0
+    const step = () => {
+      x += (tx - x) * 0.07
+      y += (ty - y) * 0.07
+      root.style.setProperty('--fx-px', x.toFixed(3))
+      root.style.setProperty('--fx-py', y.toFixed(3))
+      raf = Math.abs(tx - x) > 0.002 || Math.abs(ty - y) > 0.002 ? requestAnimationFrame(step) : 0
+    }
+    const onMove = (e) => {
+      tx = Math.max(-1, Math.min(1, (e.clientX / window.innerWidth) * 2 - 1))
+      ty = Math.max(-1, Math.min(1, (e.clientY / window.innerHeight) * 2 - 1))
+      if (!raf) raf = requestAnimationFrame(step)
+    }
+    window.addEventListener('pointermove', onMove, { passive: true })
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      cancelAnimationFrame(raf)
+      root.style.removeProperty('--fx-px')
+      root.style.removeProperty('--fx-py')
+    }
+  }, [enabled])
+}
+
+function canParallax() {
+  try {
+    return window.matchMedia('(pointer: fine)').matches && window.innerWidth >= 768
+  } catch {
+    return false
+  }
+}
+
+// a short surprise message (role=status, outside the decorative layers)
+function SecretToast({ toast }) {
+  if (!toast) return null
+  return (
+    <div key={toast.id} className="fes-toast" role="status">
+      {toast.text}
     </div>
   )
 }
@@ -314,8 +428,20 @@ function Ground({ festival }) {
 // Loaded lazily by FestivalLayer once the page has loaded and gone idle.
 export default function FestivalDecor({ festival, login }) {
   const T = THEMES[festival]
+  const { atLeast, reduced } = useSpectacle()
+  const [toast, setToast] = useState(null)
+  useParallax(!login && !reduced && atLeast('grand') && canParallax())
   if (!T) return null
   const defs = festival === 'loykrathong' && <LoyDefs />
+  const particles = atLeast('balanced') // Lite: still scenes, no particles
+  const dense = atLeast('showstopper')
+
+  const onSecret = (text) => {
+    const id = Date.now()
+    setToast({ id, text })
+    emitFx('egg', { festival })
+    setTimeout(() => setToast((t) => (t && t.id === id ? null : t)), 4500)
+  }
 
   // login: one light layer behind the branded content (the login page doesn't scroll)
   if (login) {
@@ -324,7 +450,7 @@ export default function FestivalDecor({ festival, login }) {
       <div className="fes-layer fes-behind" aria-hidden="true">
         {defs}
         <T.Sky subtle />
-        <T.Ambient subtle />
+        {particles && <T.Ambient subtle />}
         {Scene && (
           <div className="fes-ground on-login">
             <div className="fes-ground-scene">
@@ -341,12 +467,19 @@ export default function FestivalDecor({ festival, login }) {
       {defs}
       <div className="fes-ambient" aria-hidden="true">
         <div className={`fes-vignette ${festival}`} />
-        <T.Ambient />
+        {particles && <T.Ambient />}
       </div>
+      {/* Showstopper: a mirrored second particle layer for a denser show */}
+      {dense && (
+        <div className="fes-ambient fes-extra" aria-hidden="true">
+          <T.Ambient />
+        </div>
+      )}
       <div className="fes-sky" aria-hidden="true">
         <T.Sky />
       </div>
-      <Ground festival={festival} />
+      <Ground festival={festival} onSecret={onSecret} />
+      <SecretToast toast={toast} />
     </>
   )
 }

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { levelInfo, dailyXp, pickCoat, cleanPetName, WORK_XP_DAILY_CAP } from '../pet/petData'
+import { emitFx } from '../lib/fxBus'
 
 // Each user's own pet: its name, species, XP (→ level → size + unlocked accessories), the
 // daily "เติมไฟ" streak, XP earned from work today (capped), what they have equipped, and
@@ -13,7 +14,25 @@ import { levelInfo, dailyXp, pickCoat, cleanPetName, WORK_XP_DAILY_CAP } from '.
 // On sign-in the newer copy wins. It is cosmetic only — nothing in the stock system
 // reads it.
 
-const DEFAULT_PET = { name: '', species: 'cat', xp: 0, streak: 0, lastDay: null, workDay: null, workXp: 0, equipped: {}, hidden: false, updatedAt: 0 }
+const DEFAULT_PET = { name: '', species: 'cat', xp: 0, streak: 0, lastDay: null, workDay: null, workXp: 0, equipped: {}, hidden: false, unlocked: [], updatedAt: 0 }
+
+// what the pet says after each kind of save (picked at random, so it doesn't repeat itself)
+const SAVE_LINES = {
+  รับสินค้า: ['รับของเข้าคลังแล้ว 📦', 'ของมาส่งแล้ว เย้! 📦', 'สต็อกเพิ่มแล้ว ✨', 'นับเข้าคลังเรียบร้อย 📦'],
+  จ่ายสินค้า: ['เบิกออกเรียบร้อย ตรวจเช็กแล้ว 🔍', 'ส่งของออกไปแล้ว 🚚', 'หักยอดให้แล้ว 🔍', 'จ่ายออกครบถ้วน ✅'],
+  เพิ่มสินค้า: ['สินค้าใหม่มาแล้ว 🆕', 'ลงทะเบียนสินค้าแล้ว 📝'],
+}
+const pickLine = (label) => {
+  const list = SAVE_LINES[label]
+  return list ? list[Math.floor(Math.random() * list.length)] : label ? `${label}แล้ว ✓` : 'บันทึกแล้ว ✓'
+}
+
+// secret tricks the user can unlock by playing with the pet
+export const TRICKS = {
+  spin: { emoji: '🌀', name: 'หมุนติ้ว', how: 'กดที่น้องรัว ๆ 5 ครั้ง' },
+  gold: { emoji: '👑', name: 'ร่างทองคำ', how: 'กดที่น้องรัว ๆ 9 ครั้ง' },
+  dance: { emoji: '💃', name: 'เต้นฉลองคอมโบ', how: 'ทำรายการต่อเนื่องให้ได้คอมโบ ×5' },
+}
 
 const localKey = (name) => `sts-pet:${name}`
 
@@ -124,6 +143,7 @@ export const usePetStore = create((set, get) => ({
     const after = levelInfo(pet.xp).level
     if (after > before) {
       get()._emit('levelup', `เลเวลอัป! Lv.${after} 🎉`)
+      emitFx('levelup', { level: after })
       get()._sync(true)
     } else {
       get()._sync(syncNow)
@@ -147,7 +167,7 @@ export const usePetStore = create((set, get) => ({
   gainXp: (amount, label) => {
     if (!get().ready || !amount) return
     const gain = Math.min(amount, get().workXpLeft())
-    const what = label ? `${label}แล้ว ✓` : 'บันทึกแล้ว ✓'
+    const what = pickLine(label)
     if (gain <= 0) {
       get()._emit('cheer', `${what} เก่งมาก! (XP จากงานวันนี้ครบ ${WORK_XP_DAILY_CAP} แล้ว)`)
       return
@@ -171,6 +191,17 @@ export const usePetStore = create((set, get) => ({
       /* storage blocked — still fine to say it once this session */
     }
     get()._emit('warn', `👀 มีสินค้าใกล้หมด ${count} รายการ — กดที่${get().displayName()}เพื่อดู`, 6500)
+    emitFx('low-stock', { count })
+  },
+
+  // a secret trick: says "ปลดล็อก…" the first time, just does it after that
+  unlock: (id) => {
+    if (!get().ready || !TRICKS[id]) return false
+    const had = (get().pet.unlocked || []).includes(id)
+    const t = TRICKS[id]
+    get()._emit('trick', had ? `${t.emoji} ${t.name}!` : `🎉 ปลดล็อกท่าลับ: ${t.name} ${t.emoji}`, 3600)
+    if (!had) get()._update({ unlocked: [...(get().pet.unlocked || []), id] }, { syncNow: true })
+    return !had
   },
 
   setName: (raw) => get()._update({ name: cleanPetName(raw) }, { syncNow: true }),

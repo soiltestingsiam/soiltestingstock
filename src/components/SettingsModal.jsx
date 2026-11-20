@@ -10,6 +10,8 @@ import { useFestivalStore } from '../store/useFestivalStore'
 import { usePetStore } from '../store/usePetStore'
 import { FESTIVALS, PICKER_IDS, resolveFestival, parseAnniversary, anniversaryYears } from '../festival/festivals'
 import { SPECIES, levelInfo, pickCoat } from '../pet/petData'
+import { useSpectacleStore, LEVELS } from '../store/useSpectacleStore'
+import { preview as previewSound } from '../lib/sfx'
 
 export default function SettingsModal({ open, onClose }) {
   const currentUser = useCurrentUser()
@@ -26,7 +28,7 @@ export default function SettingsModal({ open, onClose }) {
           className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-semibold transition ${
             tab === 'theme'
               ? 'border-blue-500 text-[var(--text-primary)]'
-              : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+              : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
           }`}
         >
           <Sun size={15} /> ธีม
@@ -37,7 +39,7 @@ export default function SettingsModal({ open, onClose }) {
             className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-semibold transition ${
               tab === 'users'
                 ? 'border-blue-500 text-[var(--text-primary)]'
-                : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             <Users size={15} /> ผู้ใช้งาน
@@ -53,6 +55,7 @@ export default function SettingsModal({ open, onClose }) {
           <ThemeTab />
           <FestivalToggle />
           <PetToggle />
+          <SpectacleSection />
           {isAdmin && <FestivalSection />}
           {isOwner && <OwnerModeSection />}
           {isAdmin && <YearDataSection />}
@@ -130,6 +133,94 @@ function PetToggle() {
           <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${shown ? 'left-6' : 'left-1'}`} />
         </button>
       </div>
+    </div>
+  )
+}
+
+// ความอลังการ & เสียง — per device, for everyone
+function SpectacleSection() {
+  const level = useSpectacleStore((s) => s.level)
+  const reduceMotion = useSpectacleStore((s) => s.reduceMotion)
+  const sound = useSpectacleStore((s) => s.sound)
+  const volume = useSpectacleStore((s) => s.volume)
+  const { setLevel, setReduceMotion, setSound, setVolume } = useSpectacleStore.getState()
+  const osReduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  const sw = (on) => `relative flex h-7 w-12 flex-shrink-0 items-center rounded-full transition ${on ? 'bg-blue-600' : 'bg-[var(--bg-hover-strong)]'}`
+  const knob = (on) => `absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? 'left-6' : 'left-1'}`
+
+  return (
+    <div className="mt-6 rounded-xl border border-[var(--border-color)] p-4">
+      <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+        <Sparkles size={16} className="text-[var(--text-accent)]" /> ความอลังการ & เสียง
+      </div>
+      <p className="mb-3 text-xs text-[var(--text-secondary)]">ตั้งค่าเฉพาะเครื่องนี้ — ตัวเลขและตารางอ่านได้เหมือนเดิมทุกระดับ</p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="ระดับความอลังการ">
+        {LEVELS.map((l) => {
+          const on = level === l.id
+          return (
+            <button
+              key={l.id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => setLevel(l.id)}
+              className={`spectacle-opt relative flex flex-col items-start gap-0.5 rounded-xl border px-3 py-2.5 text-left transition ${
+                on ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_0_1px_#3b82f6]' : 'border-[var(--border-color)] bg-[var(--bg-surface-soft)] hover:bg-[var(--bg-hover)]'
+              }`}
+              data-level={l.id}
+            >
+              <span className="flex w-full items-center justify-between">
+                <span className="text-xs font-bold text-[var(--text-primary)]">{l.label}</span>
+                {on && <CheckIcon size={13} className="text-blue-500" />}
+              </span>
+              <span className="text-[11px] font-semibold text-[var(--text-primary)]">{l.th}</span>
+              <span className="text-[10.5px] leading-snug text-[var(--text-secondary)]">{l.desc}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-[var(--bg-surface-soft)] px-3 py-2.5">
+        <div className="min-w-0 text-xs">
+          <div className="font-semibold text-[var(--text-primary)]">ลดแอนิเมชัน</div>
+          <div className="text-[var(--text-secondary)]">
+            หยุดการเคลื่อนไหวและอนุภาคทั้งหมด{osReduced ? ' · เครื่องนี้ตั้ง “ลดการเคลื่อนไหว” ไว้แล้ว ระบบจึงลดให้อยู่แล้ว' : ''}
+          </div>
+        </div>
+        <button type="button" onClick={() => setReduceMotion(!reduceMotion)} aria-pressed={reduceMotion} aria-label="ลดแอนิเมชัน" className={sw(reduceMotion)}>
+          <span className={knob(reduceMotion)} />
+        </button>
+      </div>
+
+      <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-[var(--bg-surface-soft)] px-3 py-2.5">
+        <div className="min-w-0 text-xs">
+          <div className="font-semibold text-[var(--text-primary)]">เสียงเอฟเฟกต์</div>
+          <div className="text-[var(--text-secondary)]">เสียงสั้น ๆ เบา ๆ ตอนบันทึก เตือนสต็อก เปิดม่านเทศกาล (ปิดไว้เป็นค่าเริ่มต้น · ปิดด่วนได้ที่ปุ่มลำโพงด้านบน)</div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setSound(!sound)
+            if (!sound) setTimeout(previewSound, 30)
+          }}
+          aria-pressed={sound}
+          aria-label="เสียงเอฟเฟกต์"
+          className={sw(sound)}
+        >
+          <span className={knob(sound)} />
+        </button>
+      </div>
+      {sound && (
+        <div className="mt-2 flex flex-wrap items-center gap-3 px-1 text-xs text-[var(--text-secondary)]">
+          <label className="flex items-center gap-2">
+            ความดัง
+            <input type="range" min="0" max="1" step="0.05" value={volume} onChange={(e) => setVolume(e.target.value)} aria-label="ความดังเสียงเอฟเฟกต์" className="w-32 accent-blue-600" />
+          </label>
+          <button type="button" onClick={() => previewSound()} className="rounded-lg border border-[var(--border-color)] px-2.5 py-1 font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
+            ทดลองเสียง
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -392,7 +483,7 @@ function ThemeTab() {
             <Moon size={22} className="text-blue-300" />
           </div>
           <span className="whitespace-nowrap text-sm font-semibold text-[var(--text-primary)]">Dark Mode</span>
-          <span className="whitespace-nowrap text-xs text-[var(--text-faint)]">โทนน้ำเงินเข้ม</span>
+          <span className="whitespace-nowrap text-xs text-[var(--text-secondary)]">โทนน้ำเงินเข้ม</span>
         </button>
 
         <button
@@ -407,7 +498,7 @@ function ThemeTab() {
             <Sun size={22} className="text-amber-500" />
           </div>
           <span className="whitespace-nowrap text-sm font-semibold text-[var(--text-primary)]">Light Mode</span>
-          <span className="whitespace-nowrap text-xs text-[var(--text-faint)]">โทนสว่าง</span>
+          <span className="whitespace-nowrap text-xs text-[var(--text-secondary)]">โทนสว่าง</span>
         </button>
       </div>
     </div>
@@ -689,7 +780,7 @@ function ClearDataSection() {
 
   return (
     <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/5 p-4">
-      <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-red-400">
+      <div className="danger-title mb-1 flex items-center gap-2 text-sm font-semibold">
         <DatabaseZap size={16} /> ลบข้อมูลทั้งหมด
       </div>
       <p className="mb-3 text-xs text-[var(--text-secondary)]">
@@ -817,7 +908,7 @@ function UsersTab({ currentUser }) {
       <p className="mb-1 text-sm text-[var(--text-secondary)]">
         จัดการบัญชีผู้ใช้งานในระบบ ({others.length} บัญชี)
       </p>
-      <p className="mb-4 text-xs text-[var(--text-faint)]">
+      <p className="mb-4 text-xs text-[var(--text-secondary)]">
         ผู้ใช้งานใหม่ให้สมัครเองที่หน้าเข้าสู่ระบบ (สมัครสมาชิก) แล้วผู้ดูแลระบบกดอนุมัติในส่วน "รออนุมัติ" ด้านบน
       </p>
 
@@ -888,7 +979,7 @@ function UsersTab({ currentUser }) {
             ))}
             {others.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-xs text-[var(--text-faint)]">ยังไม่มีผู้ใช้งาน</td>
+                <td colSpan={5} className="px-4 py-6 text-center text-xs text-[var(--text-secondary)]">ยังไม่มีผู้ใช้งาน</td>
               </tr>
             )}
           </tbody>

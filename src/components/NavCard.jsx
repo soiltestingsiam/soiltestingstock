@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 
-export default function NavCard({ to, icon, title, subtitle, description, glow, floatDelay = '0s' }) {
+export default function NavCard({ to, icon, title, subtitle, description, glow, floatDelay = '0s', badge = null, badgeTone = '' }) {
   const navigate = useNavigate()
   return (
     <div className="group glow-border card-fancy relative rounded-2xl">
@@ -14,7 +14,9 @@ export default function NavCard({ to, icon, title, subtitle, description, glow, 
         }}
         className="btn-shine relative flex w-full flex-col items-center gap-4 overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] px-5 py-8 text-center shadow-card sm:gap-5 sm:px-6 sm:py-10"
       >
-        {/* soft glow that blooms on hover */}
+        {badge && <span className={`nav-badge ${badgeTone}`}>{badge}</span>}
+        {/* glass sheen + soft glow that blooms on hover */}
+        <span aria-hidden="true" className="nav-glass pointer-events-none absolute inset-0" />
         <span
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"

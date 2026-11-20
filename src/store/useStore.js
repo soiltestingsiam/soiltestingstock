@@ -5,6 +5,7 @@ import { ceToISO, isoToCE, todayDDMMYYYY } from '../utils/date'
 import { useAuthStore } from './useAuthStore'
 import { usePetStore } from './usePetStore'
 import { XP } from '../pet/petData'
+import { emitFx } from '../lib/fxBus'
 
 // The user's pet earns a little XP after a successful save (cosmetic only — it never
 // affects the stock data or calculations).
@@ -307,6 +308,7 @@ export const useStore = create((set, get) => ({
       return
     }
     await get().refetchProducts()
+    emitFx('product-add')
     petXp(XP.product, 'เพิ่มสินค้า')
   },
 
@@ -422,6 +424,7 @@ export const useStore = create((set, get) => ({
       return
     }
     await get().refetchMovements()
+    emitFx('stock-in', { code: entry.productCode, qty: Number(entry.qty) || 0 })
     petXp(XP.stockIn, 'รับสินค้า')
   },
 
@@ -451,6 +454,7 @@ export const useStore = create((set, get) => ({
       return
     }
     await get().refetchMovements()
+    emitFx('stock-out', { code: entry.productCode, qty: Number(entry.qty) || 0 })
     petXp(XP.stockOut, 'จ่ายสินค้า')
   },
 

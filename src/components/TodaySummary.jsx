@@ -5,10 +5,37 @@ import { useStore } from '../store/useStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { buildStockRows, lowStockRows, todaysMovements, LOW_STOCK_THRESHOLD } from '../utils/stockStatus'
 import { formatNumber } from '../utils/format'
+import CountUp from './CountUp'
 
 // "วันนี้" at a glance on the home page: a greeting, today's receipts / issues (by the
 // document date, same as the reports) and how many products are running low. Read-only —
 // built from the data already loaded, with the same rules as the Stock page.
+
+// The warehouse "pulse" for today — also drives the dashboard's light:
+//   activity: calm (nothing yet) · busy (1–9 lines today) · hot (10+); alert = low stock
+export function useTodayPulse() {
+  const products = useStore((s) => s.products)
+  const stockIns = useStore((s) => s.stockIns)
+  const stockOuts = useStore((s) => s.stockOuts)
+  return useMemo(() => {
+    const today = todaysMovements(stockIns, stockOuts)
+    const low = lowStockRows(buildStockRows(products, stockIns, stockOuts))
+    const moves = today.inCount + today.outCount
+    return {
+      today,
+      low,
+      out: low.filter((r) => r.qty <= 0).length,
+      activity: moves === 0 ? 'calm' : moves < 10 ? 'busy' : 'hot',
+      alert: low.length > 0,
+    }
+  }, [products, stockIns, stockOuts])
+}
+
+const PULSE_TEXT = {
+  calm: 'คลังยังเงียบ — ยังไม่มีรายการวันนี้',
+  busy: 'วันนี้มีความเคลื่อนไหว',
+  hot: 'วันนี้คลังคึกคักมาก 🔥',
+}
 
 function greeting(h) {
   if (h < 5) return 'สวัสดีค่ำคืนนี้'
@@ -17,11 +44,12 @@ function greeting(h) {
   return 'สวัสดีตอนเย็น'
 }
 
-function Tile({ to, icon, tone, label, value, hint }) {
+// glow: '' | 'glow-busy' (something happened today) | 'glow-alert' (needs attention)
+function Tile({ to, icon, tone, label, value, hint, glow = '' }) {
   return (
     <Link
       to={to}
-      className="group flex min-w-0 flex-col items-center gap-1.5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] px-2 py-3 text-center shadow-card transition hover:-translate-y-0.5 hover:border-[var(--text-accent)] sm:flex-row sm:gap-3 sm:px-4 sm:text-left"
+      className={`rim-card today-tile ${glow} group flex min-w-0 flex-col items-center gap-1.5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] px-2 py-3 text-center shadow-card transition hover:-translate-y-0.5 hover:border-[var(--text-accent)] sm:flex-row sm:gap-3 sm:px-4 sm:text-left`}
     >
       <span className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10 ${tone}`}>{icon}</span>
       <span className="w-full min-w-0 flex-1">
@@ -34,27 +62,33 @@ function Tile({ to, icon, tone, label, value, hint }) {
   )
 }
 
-export default function TodaySummary() {
-  const products = useStore((s) => s.products)
-  const stockIns = useStore((s) => s.stockIns)
-  const stockOuts = useStore((s) => s.stockOuts)
+export default function TodaySummary({ pulse: given }) {
+  const own = useTodayPulse()
+  const pulse = given ?? own
   const username = useAuthStore((s) => s.profile?.username)
-
-  const today = useMemo(() => todaysMovements(stockIns, stockOuts), [stockIns, stockOuts])
-  const low = useMemo(() => lowStockRows(buildStockRows(products, stockIns, stockOuts)), [products, stockIns, stockOuts])
-  const out = low.filter((r) => r.qty <= 0).length
+  const { today, low, out } = pulse
 
   const now = new Date()
   const dateText = now.toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const count = (n) => (
+    <>
+      <CountUp value={n} /> รายการ
+    </>
+  )
 
   return (
-    <section aria-labelledby="today-title" className="anim-fade-up mx-auto mb-7 max-w-5xl sm:mb-9">
+    <section
+      aria-labelledby="today-title"
+      className="today-summary anim-fade-up mx-auto mb-7 max-w-5xl sm:mb-9"
+      data-activity={pulse.activity}
+      data-alert={pulse.alert ? 'low' : undefined}
+    >
       <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-1">
         <h2 id="today-title" className="text-sm font-bold text-[var(--text-primary)]">
           {greeting(now.getHours())}
           {username ? `, ${username}` : ''} 👋
         </h2>
-        <span className="text-xs text-[var(--text-muted)]">{dateText}</span>
+        <span className="text-xs text-[var(--text-secondary)]">{dateText}</span>
       </div>
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <Tile
@@ -62,16 +96,18 @@ export default function TodaySummary() {
           tone="bg-emerald-500/15 text-emerald-500"
           icon={<ArrowDownToLine size={20} />}
           label="รับเข้าวันนี้"
-          value={`${formatNumber(today.inCount)} รายการ`}
+          value={count(today.inCount)}
           hint={today.inCount ? `${formatNumber(today.inProducts)} สินค้า` : 'ยังไม่มีรายการรับเข้า'}
+          glow={today.inCount ? 'glow-busy' : ''}
         />
         <Tile
           to="/stock-out"
           tone="bg-orange-500/15 text-orange-500"
           icon={<ArrowUpFromLine size={20} />}
           label="จ่ายออกวันนี้"
-          value={`${formatNumber(today.outCount)} รายการ`}
+          value={count(today.outCount)}
           hint={today.outCount ? `${formatNumber(today.outProducts)} สินค้า` : 'ยังไม่มีรายการจ่ายออก'}
+          glow={today.outCount ? 'glow-busy' : ''}
         />
         {low.length > 0 ? (
           <Tile
@@ -79,8 +115,9 @@ export default function TodaySummary() {
             tone="bg-red-500/15 text-red-500"
             icon={<AlertTriangle size={20} />}
             label="สินค้าเหลือน้อย"
-            value={`${formatNumber(low.length)} รายการ`}
+            value={count(low.length)}
             hint={out ? `หมดสต๊อก ${formatNumber(out)} · ดูที่สินค้าคงเหลือ` : `เหลือ ≤ ${LOW_STOCK_THRESHOLD} หน่วย · ดูที่สินค้าคงเหลือ`}
+            glow="glow-alert"
           />
         ) : (
           <Tile
@@ -93,7 +130,14 @@ export default function TodaySummary() {
           />
         )}
       </div>
-      <p className="mt-2 px-1 text-[11px] text-[var(--text-muted)]">นับตามวันที่ในเอกสาร (เหมือนในรายงาน) · ไม่รวมยอดยกมา</p>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
+        <p className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-secondary)]">
+          <span className={`pulse-dot ${pulse.activity} ${pulse.alert ? 'alert' : ''}`} aria-hidden="true" />
+          {PULSE_TEXT[pulse.activity]}
+          {pulse.alert ? ' · มีสินค้าใกล้หมด' : ''}
+        </p>
+        <p className="text-[11px] text-[var(--text-secondary)]">นับตามวันที่ในเอกสาร (เหมือนในรายงาน) · ไม่รวมยอดยกมา</p>
+      </div>
     </section>
   )
 }

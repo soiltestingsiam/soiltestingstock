@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { X, Lock, Flame, EyeOff, Sparkles, Pencil, Check, AlertTriangle, ChevronRight, Briefcase } from 'lucide-react'
 import PetSprite from '../pet/PetSprite'
-import { usePetStore, dayKey } from '../store/usePetStore'
+import { usePetStore, dayKey, TRICKS } from '../store/usePetStore'
+import { onFx, emitFx } from '../lib/fxBus'
+import { atLeast, motionReduced } from '../store/useSpectacleStore'
 import { useStore } from '../store/useStore'
 import { useActiveFestival } from '../store/useFestivalStore'
 import { buildStockRows, lowStockRows } from '../utils/stockStatus'
@@ -39,6 +41,9 @@ const SPRITE_RATIO = 230 / 200
 const SPEED = 34 // px / s
 
 const WAKE_MS = 45 * 1000 // a click after hours keeps it awake this long
+// unique ids for short-lived effects (two effects can start in the same millisecond)
+let fxSeq = 0
+const nextFxId = () => (fxSeq += 1)
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 
 // low-stock products from the data already loaded for the pages (same rule as สินค้าคงเหลือ)
@@ -83,6 +88,11 @@ export default function PetCompanion() {
   const [hearts, setHearts] = useState([])
   const [levelFx, setLevelFx] = useState(false)
   const [cheer, setCheer] = useState(false)
+  const [mood, setMood] = useState(null) // { kind, id } celebrate | alert | paper | stamp | spin | gold | dance
+  const [sparks, setSparks] = useState([]) // little burst around the pet
+  const [combo, setCombo] = useState(null) // { n, id }
+  const comboRef = useRef({ n: 0, last: 0 })
+  const tapsRef = useRef([])
   const { sleeping, late, wake } = useSleepy()
   const { low, loading } = useLowStock()
 
@@ -115,7 +125,7 @@ export default function PetCompanion() {
     if (!lastCheer) return undefined
     setCheer(true)
     setHappy(true)
-    const id = Date.now()
+    const id = nextFxId()
     setHearts((h) => [...h.slice(-4), id])
     const t1 = setTimeout(() => setHearts((h) => h.filter((x) => x !== id)), 1100)
     const t2 = setTimeout(() => {
@@ -230,16 +240,108 @@ export default function PetCompanion() {
     }
   }, [visible, open, width, height])
 
+  // ---- moods: the pet reacts to what really happens in the app (see lib/fxBus) ----
+  const visibleRef = useRef(visible)
+  visibleRef.current = visible
+  const lateRef = useRef(late)
+  lateRef.current = late
+
+  function burst(emojis, count = 8) {
+    if (motionReduced() || !atLeast('balanced')) return
+    const id = nextFxId()
+    const n = atLeast('showstopper') ? count + 4 : count
+    const parts = Array.from({ length: n }, (_, i) => {
+      const a = (i / n) * Math.PI * 2 + Math.random() * 0.4
+      const d = 34 + Math.random() * 30
+      return { e: emojis[i % emojis.length], dx: Math.cos(a) * d, dy: Math.sin(a) * d - 26 }
+    })
+    setSparks((s) => [...s.slice(-2), { id, parts }])
+    setTimeout(() => setSparks((s) => s.filter((x) => x.id !== id)), 1200)
+  }
+
+  function showMood(kind, ms = 1800) {
+    const id = nextFxId()
+    setMood({ kind, id })
+    setTimeout(() => setMood((m) => (m && m.id === id ? null : m)), ms)
+  }
+
+  useEffect(
+    () =>
+      onFx(({ type, detail }) => {
+        if (!visibleRef.current) return
+        if (type === 'egg' && String(detail?.kind || '').startsWith('pet-')) return // its own trick
+        // after hours, what the user does wakes it up — the automatic stock heads-up doesn't
+        if (lateRef.current && type !== 'low-stock') wake()
+        const say = (t, text, ms) => usePetStore.getState()._emit(t, text, ms)
+        if (type === 'stock-in' || type === 'product-add') {
+          showMood('celebrate')
+          burst(['✨', '📦', '⭐', '🎉'])
+        } else if (type === 'stock-out') {
+          showMood('alert', 1600)
+          burst(['🔍', '✔️', '✨'], 6)
+        } else if (type === 'low-stock') {
+          showMood('alert', 2400)
+        } else if (type === 'report-open') {
+          showMood('paper', 2000)
+          say('doc', 'เตรียมเอกสารให้แล้ว 📑', 2600)
+        } else if (type === 'report-export') {
+          showMood('stamp', 2200)
+          say('doc', 'ปั๊ม! เอกสารพร้อมแล้ว ✅', 2800)
+        } else if (type === 'egg') {
+          showMood('spin', 1400)
+          burst(['🌟', '✨', '💫', '🎊'], 12)
+        }
+        // combo: work done back-to-back (within 90 s of the last one)
+        if (type === 'stock-in' || type === 'stock-out' || type === 'product-add') {
+          const c = comboRef.current
+          const now = Date.now()
+          c.n = now - c.last < 90000 ? c.n + 1 : 1
+          c.last = now
+          if (c.n >= 2) {
+            const cid = nextFxId()
+            setCombo({ n: c.n, id: cid })
+            setTimeout(() => setCombo((x) => (x && x.id === cid ? null : x)), 2600)
+            emitFx('combo', { n: c.n })
+            if (c.n === 5) {
+              usePetStore.getState().unlock('dance')
+              setTimeout(() => showMood('dance', 2600), 900)
+              burst(['💃', '🎶', '✨', '⚡'], 12)
+            }
+          }
+        }
+      }),
+    [],
+  )
+
   if (!visible) return null
 
   function pat() {
     if (late) wake()
     setHappy(true)
     const id = Date.now()
-    setHearts((h) => [...h.slice(-4), id])
-    setTimeout(() => setHearts((h) => h.filter((x) => x !== id)), 1100)
+    const hid = nextFxId()
+    setHearts((h) => [...h.slice(-4), hid])
+    setTimeout(() => setHearts((h) => h.filter((x) => x !== hid)), 1100)
     setTimeout(() => setHappy(false), 1400)
-    setOpen((o) => !o)
+    // secret: tapping fast (each tap within 1 s of the last) doesn't flap the panel — it
+    // does tricks instead: 5 in a row = spin, 9 in a row = golden form
+    const last = tapsRef.current[tapsRef.current.length - 1]
+    const taps = last && id - last < 1000 ? [...tapsRef.current, id] : [id]
+    tapsRef.current = taps
+    if (taps.length >= 3) setOpen(false)
+    else setOpen((o) => !o)
+    if (taps.length === 5) {
+      usePetStore.getState().unlock('spin')
+      showMood('spin', 1300)
+      burst(['🌀', '✨', '💫'], 10)
+      emitFx('egg', { kind: 'pet-spin' })
+    } else if (taps.length === 9) {
+      tapsRef.current = []
+      usePetStore.getState().unlock('gold')
+      showMood('gold', 8000)
+      burst(['👑', '✨', '🌟', '💛'], 14)
+      emitFx('egg', { kind: 'pet-gold' })
+    }
   }
 
   // bubbles grow toward the middle of the screen so they never run off the edge
@@ -261,9 +363,42 @@ export default function PetCompanion() {
           </span>
         ))}
         {levelFx && <span className="pet-ring" />}
+        {sparks.map((s) => (
+          <span key={`sparks-${s.id}`} className="pet-sparks" aria-hidden="true">
+            {s.parts.map((p, i) => (
+              <span key={i} style={{ '--dx': `${p.dx}px`, '--dy': `${p.dy}px`, animationDelay: `${i * 18}ms` }}>
+                {p.e}
+              </span>
+            ))}
+          </span>
+        ))}
+        {combo && (
+          <span key={`combo-${combo.id}`} className={`pet-combo ${combo.n >= 5 ? 'hot' : ''}`} aria-hidden="true">
+            คอมโบ ×{combo.n} ⚡
+          </span>
+        )}
+        {mood?.kind === 'alert' && (
+          <span key={`alert-${mood.id}`} className="pet-alert-mark" aria-hidden="true">
+            !
+          </span>
+        )}
+        {(mood?.kind === 'paper' || mood?.kind === 'stamp') && (
+          <span key={`doc-${mood.id}`} className={`pet-doc ${mood.kind}`} aria-hidden="true">
+            <svg viewBox="0 0 40 46" width="100%" height="100%">
+              <path d="M4 3 H28 L36 11 V43 H4 Z" fill="#fffdf6" stroke="#cbd5e1" strokeWidth="1.5" />
+              <path d="M28 3 V11 H36" fill="#eef2f7" stroke="#cbd5e1" strokeWidth="1.5" />
+              <path d="M9 17 H30 M9 22 H30 M9 27 H24" stroke="#94a3b8" strokeWidth="1.6" strokeLinecap="round" />
+              <g className="pet-doc-seal">
+                <circle cx="27" cy="35" r="6.5" fill="none" stroke="#dc2626" strokeWidth="1.8" />
+                <path d="M24 35 l2.2 2.2 L30.5 32.6" stroke="#dc2626" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+              </g>
+            </svg>
+            {mood.kind === 'stamp' && <span className="pet-stamp" />}
+          </span>
+        )}
         <button
           type="button"
-          className={`pet-body ${levelFx ? 'levelup' : ''} ${cheer ? 'cheer' : ''}`}
+          className={`pet-body ${levelFx ? 'levelup' : ''} ${cheer ? 'cheer' : ''} ${mood ? `mood-${mood.kind}` : ''}`}
           aria-label={`สัตว์เลี้ยงของฉัน ${petName} (${SPECIES[pet.species]?.label || ''}${coat.name}) เลเวล ${level}${sleeping ? ' กำลังงีบ' : ''}${hasLow ? ` · สินค้าใกล้หมด ${low.length} รายการ` : ''} — กดเพื่อดูและแต่งตัว`}
           aria-expanded={open}
           onClick={pat}
@@ -400,6 +535,27 @@ function PetPanel({ x, petH, coat, outfit, low, late, onClose }) {
           </Link>
         </div>
       )}
+
+      {/* secret tricks */}
+      <div className="mt-3">
+        <div className="text-xs font-semibold text-[var(--text-secondary)]">ท่าลับ</div>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {Object.entries(TRICKS).map(([id, t]) => {
+            const on = (pet.unlocked || []).includes(id)
+            return (
+              <span
+                key={id}
+                title={on ? t.name : `ยังไม่ปลดล็อก — ${t.how}`}
+                className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                  on ? 'border-amber-400/60 bg-amber-400/10 text-[var(--text-primary)]' : 'border-dashed border-[var(--border-color)] text-[var(--text-secondary)]'
+                }`}
+              >
+                {on ? `${t.emoji} ${t.name}` : `🔒 ${t.how}`}
+              </span>
+            )
+          })}
+        </div>
+      </div>
 
       {/* cat / dog */}
       <div className="mt-3 grid grid-cols-2 gap-2">
