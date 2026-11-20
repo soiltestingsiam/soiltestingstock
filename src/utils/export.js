@@ -21,22 +21,25 @@ async function captureElement(element) {
   // Wide report tables scroll sideways on screen; un-clip them in the capture so the PDF
   // gets every column instead of just the visible part.
   const fullWidth = Math.max(element.scrollWidth, ...[...element.querySelectorAll('table')].map((t) => t.scrollWidth + 48))
-  // Match the current theme's background, otherwise the light theme's black text would be
-  // captured on the dark theme's background (black on black). The dark theme keeps the
-  // exact background it always had.
-  // The festival theme is deliberately EXCLUDED from exports: read the base --bg-card with
-  // data-festival momentarily off (synchronous, no visible flash), and strip it from the
-  // clone below so the PDF is never seasonally tinted.
+  // Exports are always the plain document: white paper and black text, whatever the screen
+  // shows. The capture is rendered in the light theme, without the festival tint or the
+  // user's personal theme — so a PDF made in Dark mode is the same as one made in Light
+  // mode. The light theme's --bg-card is read with those attributes momentarily swapped
+  // (synchronous, nothing is painted in between, so there is no visible flash), and the
+  // clone below gets the same attributes.
   const root = document.documentElement
-  const isLight = root.getAttribute('data-theme') === 'light'
+  const theme = root.getAttribute('data-theme')
   const festival = root.getAttribute('data-festival')
   const skin = root.getAttribute('data-skin')
+  root.setAttribute('data-theme', 'light')
   if (festival) root.removeAttribute('data-festival')
   if (skin) root.removeAttribute('data-skin')
   const themeBg = getComputedStyle(root).getPropertyValue('--bg-card').trim()
+  if (theme) root.setAttribute('data-theme', theme)
+  else root.removeAttribute('data-theme')
   if (festival) root.setAttribute('data-festival', festival)
   if (skin) root.setAttribute('data-skin', skin)
-  const backgroundColor = isLight ? themeBg || '#ffffff' : '#0B0F19'
+  const backgroundColor = themeBg || '#ffffff'
   const scale = 2
   let breaks = []
   const canvas = await html2canvas(element, {
@@ -45,7 +48,8 @@ async function captureElement(element) {
     width: fullWidth,
     windowWidth: fullWidth + 400,
     onclone: (doc, clone) => {
-      // exports never carry the festival tint or the user's personal theme
+      // always the light, plain document: no dark theme, festival tint or personal theme
+      doc.documentElement.setAttribute('data-theme', 'light')
       doc.documentElement.removeAttribute('data-festival')
       doc.documentElement.removeAttribute('data-skin')
       clone.style.width = `${fullWidth}px`
