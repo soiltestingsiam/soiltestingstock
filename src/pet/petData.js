@@ -115,9 +115,42 @@ export const ACCESSORIES = [
   { id: 'rainbow', name: 'รัศมีรุ้ง', emoji: '🌈', slot: 'aura', level: 15 },
 ]
 
-export function resolveOutfit(festival, equipped = {}) {
-  const out = { ...(FESTIVAL_OUTFIT[festival] || {}) }
-  for (const [slot, id] of Object.entries(equipped || {})) if (id) out[slot] = id
+// The user's personal theme dresses the pet too (on top of the festival outfit):
+//   geotech_classic → "วิศวกรฝึกหัดประจำคลัง": a hi-vis field vest, plus the safety
+//              helmet whenever the festival doesn't bring its own hat ·
+//   japanese → a yukata, plus a tōrō lantern at ลอยกระทง, an uchiwa fan at สงกรานต์,
+//              an omamori charm at New Year · cyber → AR visor + neon aura ·
+//   minimal → a fine gold chain. Anything the user equips still wins its slot.
+const SKIN_OUTFIT = {
+  geotech_classic: (f) => ({ body: 'hivis', ...(FESTIVAL_OUTFIT[f]?.head ? {} : { head: 'hardhat' }) }),
+  japanese: (f) => ({ body: 'yukata', ...({ loykrathong: { prop: 'toro' }, songkran: { prop: 'uchiwa' }, newyear: { prop: 'omamori' } }[f] || {}) }),
+  cyber: () => ({ face: 'ar-visor', aura: 'neon' }),
+  minimal: () => ({ neck: 'gold-chain' }),
+}
+
+// What the pet wears: the festival outfit, then the theme's outfit, then the user's own
+// choices. `chosen` is the 4-slot wardrobe ({ headgear, outfit, prop, aura }; null = auto)
+// — a picked item replaces everything auto in its slot — or, from old saves, sprite slots
+// ({ head, face, neck, back, aura }) that simply override their own slot.
+const WARDROBE_CLEARS = { headgear: ['head', 'face'], outfit: ['body', 'neck', 'back'], prop: ['prop'], aura: ['aura'] }
+export function resolveOutfit(festival, chosen = {}, skin = 'geotech_classic') {
+  const key = skin === 'classic' ? 'geotech_classic' : skin
+  const out = { ...(FESTIVAL_OUTFIT[festival] || {}), ...(SKIN_OUTFIT[key]?.(festival) || {}) }
+  for (const [slot, id] of Object.entries(chosen || {})) {
+    if (!id) continue
+    if (WARDROBE_CLEARS[slot]) {
+      // a wardrobe slot (aura is both a wardrobe slot and a sprite slot — same thing)
+      const item = WARDROBE_BY_ID[id]
+      if (!item) {
+        if (slot === 'aura') out.aura = id
+        continue
+      }
+      for (const s of WARDROBE_CLEARS[slot]) delete out[s]
+      out[item.sprite] = id
+    } else {
+      out[slot] = id // legacy sprite slot
+    }
+  }
   return out
 }
 
@@ -133,6 +166,10 @@ export function levelInfo(xp = 0) {
   }
   return { level, floor, next: floor + need, into: xp - floor, need, pct: Math.max(0, Math.min(1, (xp - floor) / need)) }
 }
+
+// The glow under the pet grows with its level: 0 none · 1 Lv.5+ soft ring · 2 Lv.10+
+// pulsing ring with sparks · 3 Lv.15+ a halo that orbits.
+export const auraTier = (level) => (level >= 15 ? 3 : level >= 10 ? 2 : level >= 5 ? 1 : 0)
 
 // Bigger with every level, capped so it never gets in the way.
 export const sizeForLevel = (level) => Math.min(1 + (level - 1) * 0.05, 1.45)
@@ -174,3 +211,125 @@ export function mix(a, b, t) {
   const ch = (shift) => Math.round(((pa >> shift) & 255) * (1 - t) + ((pb >> shift) & 255) * t)
   return `#${((1 << 24) + (ch(16) << 16) + (ch(8) << 8) + ch(0)).toString(16).slice(1)}`
 }
+
+/* ======================================================================
+   Wardrobe — 4 slots, mix & match: Headgear · Outfit · Hand Prop · Aura/Trail
+   Each slot is either "auto" (null — dressed by the user's theme + the festival, see
+   resolveOutfit) or one item the user picked. An item is unlocked by level, bought with
+   fashion coins (🪙 from Supply Drops), earned at a festival (claim a Supply Drop while it
+   is on — and it can be worn freely during that festival), earned by a quest, or free.
+   ====================================================================== */
+export const WARDROBE_SLOTS = {
+  headgear: { label: 'หมวก / ศีรษะ', en: 'Headgear', emoji: '⛑️' },
+  outfit: { label: 'ชุด', en: 'Outfit', emoji: '🦺' },
+  prop: { label: 'ของในมือ', en: 'Hand Prop', emoji: '📋' },
+  aura: { label: 'รัศมี', en: 'Aura / Trail', emoji: '✨' },
+}
+export const WARDROBE_SLOT_IDS = Object.keys(WARDROBE_SLOTS)
+
+// sprite: which PetSprite slot draws it (head · face · neck · back · body · prop · aura)
+export const WARDROBE = [
+  // headgear
+  { id: 'hardhat', slot: 'headgear', sprite: 'head', name: 'หมวกเซฟตี้ STS', emoji: '⛑️', unlock: { free: true } },
+  { id: 'bow', slot: 'headgear', sprite: 'head', name: 'โบว์ติดหู', emoji: '🎀', unlock: { level: 3 } },
+  { id: 'glasses', slot: 'headgear', sprite: 'face', name: 'แว่นกลม', emoji: '👓', unlock: { level: 4 } },
+  { id: 'crown', slot: 'headgear', sprite: 'head', name: 'มงกุฎ', emoji: '👑', unlock: { level: 6 } },
+  { id: 'shades', slot: 'headgear', sprite: 'face', name: 'แว่นกันแดด', emoji: '🕶️', unlock: { level: 7 } },
+  { id: 'tophat', slot: 'headgear', sprite: 'head', name: 'หมวกทรงสูง', emoji: '🎩', unlock: { level: 8 } },
+  { id: 'ar-visor', slot: 'headgear', sprite: 'face', name: 'แว่น AR ไซเบอร์', emoji: '🥽', unlock: { coins: 40 } },
+  { id: 'flower-crown', slot: 'headgear', sprite: 'head', name: 'มงกุฎดอกไม้ลอยกระทง', emoji: '🌸', unlock: { festival: 'loykrathong' } },
+  { id: 'santa', slot: 'headgear', sprite: 'head', name: 'หมวกซานต้า', emoji: '🎅', unlock: { festival: 'christmas' } },
+  { id: 'witch', slot: 'headgear', sprite: 'head', name: 'หมวกแม่มด', emoji: '🧙', unlock: { festival: 'halloween' } },
+  { id: 'party', slot: 'headgear', sprite: 'head', name: 'หมวกปาร์ตี้ปีใหม่', emoji: '🥳', unlock: { festival: 'newyear' } },
+  { id: 'mandarin', slot: 'headgear', sprite: 'head', name: 'หมวกจีน', emoji: '🧧', unlock: { festival: 'chinesenewyear' } },
+  { id: 'flower-ear', slot: 'headgear', sprite: 'head', name: 'ดอกไม้ทัดหู', emoji: '🌺', unlock: { festival: 'songkran' } },
+  // outfit
+  { id: 'hivis', slot: 'outfit', sprite: 'body', name: 'เสื้อกั๊กวิศวกรภาคสนาม', emoji: '🦺', unlock: { free: true } },
+  { id: 'bell', slot: 'outfit', sprite: 'neck', name: 'ปลอกคอกระดิ่ง', emoji: '🔔', unlock: { level: 2 } },
+  { id: 'scarf', slot: 'outfit', sprite: 'neck', name: 'ผ้าพันคอไหมพรม', emoji: '🧣', unlock: { level: 5 } },
+  { id: 'wings', slot: 'outfit', sprite: 'back', name: 'ปีกนางฟ้า', emoji: '🪽', unlock: { level: 9 } },
+  { id: 'diamond', slot: 'outfit', sprite: 'neck', name: 'ปลอกคอเพชร', emoji: '💎', unlock: { level: 12 } },
+  { id: 'yukata', slot: 'outfit', sprite: 'body', name: 'ชุดยูกาตะ', emoji: '👘', unlock: { coins: 30 } },
+  { id: 'gold-chain', slot: 'outfit', sprite: 'neck', name: 'สร้อยทองเส้นเล็ก', emoji: '📿', unlock: { coins: 25 } },
+  { id: 'neon-collar', slot: 'outfit', sprite: 'neck', name: 'ปลอกคอนีออน', emoji: '💠', unlock: { coins: 25 } },
+  { id: 'xmas-scarf', slot: 'outfit', sprite: 'neck', name: 'ผ้าพันคอคริสต์มาส', emoji: '🧣', unlock: { festival: 'christmas' } },
+  { id: 'garland', slot: 'outfit', sprite: 'neck', name: 'พวงมาลัยสงกรานต์', emoji: '💐', unlock: { festival: 'songkran' } },
+  // hand prop
+  { id: 'soil-core', slot: 'prop', sprite: 'prop', name: 'แท่งตัวอย่างดิน', emoji: '🧪', unlock: { level: 3 } },
+  { id: 'clipboard', slot: 'prop', sprite: 'prop', name: 'คลิปบอร์ดเช็กลิสต์', emoji: '📋', unlock: { quest: 'quest-clear' } },
+  { id: 'toro', slot: 'prop', sprite: 'prop', name: 'โคมโทโร (灯籠)', emoji: '🏮', unlock: { festival: 'loykrathong' } },
+  { id: 'uchiwa', slot: 'prop', sprite: 'prop', name: 'พัดอุจิวะ', emoji: '🪭', unlock: { festival: 'songkran' } },
+  { id: 'omamori', slot: 'prop', sprite: 'prop', name: 'เครื่องรางโอมาโมริ', emoji: '🧧', unlock: { festival: 'newyear' } },
+  // aura / trail
+  { id: 'strata', slot: 'aura', sprite: 'aura', name: 'วงแหวนชั้นดิน', emoji: '🟤', unlock: { level: 5 } },
+  { id: 'goldaura', slot: 'aura', sprite: 'aura', name: 'รัศมีทอง', emoji: '✨', unlock: { level: 10 } },
+  { id: 'neon', slot: 'aura', sprite: 'aura', name: 'วงแหวนนีออน', emoji: '🌀', unlock: { coins: 40 } },
+  { id: 'rainbow', slot: 'aura', sprite: 'aura', name: 'รัศมีรุ้ง', emoji: '🌈', unlock: { level: 15 } },
+]
+export const WARDROBE_BY_ID = Object.fromEntries(WARDROBE.map((w) => [w.id, w]))
+
+// Supply Drop rewards (the server caps claims at 6 a day, 8+ minutes apart — see 008)
+export const SUPPLY_XP = 3
+export const SUPPLY_COINS = 5
+export const SUPPLY_DAILY_CAP = 6
+export const SUPPLY_EVERY_MIN = 10 // minutes of REAL active time per drop
+export const SUPPLY_AFK_SEC = 60 // no mouse / keyboard for this long → the clock stops
+
+// can this pet wear the item right now?  { ok, reason }
+export function wardrobeStatus(item, { level = 1, owned = [], festival = 'none' } = {}) {
+  if (!item) return { ok: false, reason: '' }
+  const u = item.unlock || {}
+  if (u.free || owned.includes(item.id)) return { ok: true, reason: '' }
+  if (u.level) return level >= u.level ? { ok: true, reason: '' } : { ok: false, reason: `Lv.${u.level}` }
+  if (u.festival) return festival === u.festival ? { ok: true, reason: 'ใส่ได้ช่วงเทศกาล' } : { ok: false, reason: 'เทศกาล' }
+  if (u.coins) return { ok: false, reason: `${u.coins} 🪙`, cost: u.coins }
+  if (u.quest) return { ok: false, reason: 'ภารกิจ' }
+  return { ok: false, reason: '' }
+}
+export function wardrobeHint(item) {
+  const u = item?.unlock || {}
+  if (u.free) return 'ฟรี'
+  if (u.level) return `ปลดล็อกที่ Lv.${u.level}`
+  if (u.coins) return `แลกด้วย ${u.coins} เหรียญแฟชั่น 🪙`
+  if (u.festival) return 'ได้จากเทศกาล — รับ Supply Drop ช่วงเทศกาลเพื่อเก็บไว้ถาวร'
+  if (u.quest) return 'ได้จากภารกิจด่วน — เคลียร์สต็อกใกล้หมดให้ครบ'
+  return ''
+}
+
+// old saves kept sprite slots in `equipped` ({ head, face, neck, back, aura }) — map them
+export function wardrobeFromLegacy(equipped = {}) {
+  const e = equipped || {}
+  return {
+    headgear: e.head || e.face || null,
+    outfit: e.neck || e.back || null,
+    prop: null,
+    aura: e.aura || null,
+  }
+}
+
+// ---- profile card (ranking): titles + frames ----
+export const TITLES = [
+  { id: 'trainee', label: 'วิศวกรฝึกหัดประจำคลัง', unlock: { level: 1 } },
+  { id: 'field', label: 'ผู้ช่วยวิศวกรภาคสนาม', unlock: { level: 3 } },
+  { id: 'driller', label: 'นักเจาะสำรวจดิน', unlock: { level: 5 } },
+  { id: 'lab', label: 'ผู้เชี่ยวชาญห้องแล็บ', unlock: { level: 8 } },
+  { id: 'keeper', label: 'หัวหน้าคลังอุปกรณ์', unlock: { level: 10 } },
+  { id: 'legend', label: 'ตำนานแห่งชั้นดิน', unlock: { level: 15 } },
+  { id: 'streak', label: 'ไฟไม่มีมอด 🔥', unlock: { streak: 7 } },
+  { id: 'explorer', label: 'นักสำรวจสายลับ 🎮', unlock: { trick: 'konami' } },
+]
+export const FRAMES = [
+  { id: 'none', label: 'ไม่มีกรอบ', unlock: { level: 1 } },
+  { id: 'strata', label: 'ชั้นดิน', unlock: { level: 3 } },
+  { id: 'sakura', label: 'ซากุระ', unlock: { level: 6 } },
+  { id: 'neon', label: 'นีออน', unlock: { level: 9 } },
+  { id: 'gold', label: 'ทองคำ', unlock: { level: 12 } },
+]
+export function profileUnlocked(entry, { level = 1, streak = 0, unlocked = [] } = {}) {
+  const u = entry?.unlock || {}
+  if (u.level) return level >= u.level
+  if (u.streak) return streak >= u.streak
+  if (u.trick) return unlocked.includes(u.trick)
+  return true
+}
+export const DISPLAY_NAME_MAX = 24

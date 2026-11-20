@@ -1,6 +1,8 @@
 import PetSprite from '../pet/PetSprite'
 import { usePetStore } from '../store/usePetStore'
-import { pickCoat } from '../pet/petData'
+import { useThemeStore } from '../store/useThemeStore'
+import { usePureWork } from '../store/useSpectacleStore'
+import { pickCoat, resolveOutfit } from '../pet/petData'
 
 // "Nothing here" — the user's own pet peeks out of an empty box (just the box when the
 // user has hidden their pet). Used for empty lists / no search results. Not used inside
@@ -34,8 +36,11 @@ export function PetInBox() {
   const ready = usePetStore((s) => s.ready)
   const pet = usePetStore((s) => s.pet)
   const owner = usePetStore((s) => s.owner)
+  const skin = useThemeStore((s) => s.skin)
+  const pureWork = usePureWork()
 
-  if (!ready || pet.hidden) {
+  // hidden pet, or "โหมดทำงานล้วน": just the box
+  if (!ready || pet.hidden || pureWork) {
     return (
       <Box>
         <span className="empty-q absolute left-1/2 top-[18px] -translate-x-1/2 text-2xl font-black text-[var(--text-accent)]">?</span>
@@ -44,15 +49,16 @@ export function PetInBox() {
     )
   }
   const coat = pickCoat(pet.species, owner)
+  const outfit = resolveOutfit('none', pet.wardrobe || pet.equipped, skin)
   const sprite = { position: 'absolute', left: 20, top: -2, width: 72, height: 83, '--gx': -0.25, '--gy': 0.45 }
   return (
     <Box>
       <div className="empty-pet-head z-[1]" style={sprite}>
-        <PetSprite species={pet.species} coat={coat} outfit={pet.equipped || {}} pose="peek" layer="back" />
+        <PetSprite species={pet.species} coat={coat} outfit={outfit} pose="peek" layer="back" />
       </div>
       <BoxFront />
       <div className="z-[3]" style={sprite}>
-        <PetSprite species={pet.species} coat={coat} outfit={pet.equipped || {}} pose="peek" layer="front" />
+        <PetSprite species={pet.species} coat={coat} outfit={outfit} pose="peek" layer="front" />
       </div>
       <span className="empty-q absolute right-[6px] top-[2px] text-lg font-black text-[var(--text-accent)]">?</span>
     </Box>

@@ -91,12 +91,17 @@ const RECIPES = {
   },
   egg: (c) => arp(c, [76, 79, 83, 88, 91, 95, 100], { step: 0.055, gain: 0.05, dur: 0.3 }),
   levelup: (c) => arp(c, [72, 76, 79, 84], { step: 0.11, type: 'square', gain: 0.03, dur: 0.24 }),
+  grand: (c) => {
+    arp(c, [72, 76, 79, 84, 88, 91], { step: 0.09, type: 'triangle', gain: 0.06, dur: 0.4 })
+    noise(c, { at: 0.5, dur: 0.6, gain: 0.03, from: 800, to: 5200 })
+    arp(c, [84, 88, 91, 96], { at: 0.62, step: 0.06, gain: 0.045, dur: 0.3 })
+  },
   combo: (c, n = 2) => arp(c, [79 + Math.min(n, 10), 84 + Math.min(n, 10)], { step: 0.05, gain: 0.05 }),
 }
 
 export function play(name, arg) {
-  const { sound, volume } = useSpectacleStore.getState()
-  if (!sound || !RECIPES[name]) return false
+  const { sound, volume, pureWork } = useSpectacleStore.getState()
+  if (!sound || pureWork || !RECIPES[name]) return false
   const c = audio()
   if (!c) return false
   master.gain.setValueAtTime(Math.max(0.0001, volume), c.currentTime)
@@ -119,7 +124,7 @@ export function wireSounds() {
   if (wired) return
   wired = true
   onFx(({ type, detail }) => {
-    if (type === 'stock-in') play('stockIn')
+    if (type === 'stock-in' || type === 'stock-import') play('stockIn')
     else if (type === 'stock-out') play('stockOut')
     else if (type === 'product-add') play('save')
     else if (type === 'report-export') play('stamp')
@@ -127,6 +132,6 @@ export function wireSounds() {
     else if (type === 'festival-curtain') play('curtain')
     else if (type === 'egg') play('egg')
     else if (type === 'combo') play('combo', detail.n)
-    else if (type === 'levelup') play('levelup')
+    else if (type === 'levelup' || type === 'supply') play('levelup')
   })
 }

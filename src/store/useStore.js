@@ -7,6 +7,10 @@ import { usePetStore } from './usePetStore'
 import { XP } from '../pet/petData'
 import { emitFx } from '../lib/fxBus'
 
+// "grand celebration" moments (confetti + fanfare) — decorative, sent after the work succeeded
+const GRAND_IMPORT_ROWS = 50
+const GRAND_STOCK_IN_VALUE = 100000
+
 // The user's pet earns a little XP after a successful save (cosmetic only — it never
 // affects the stock data or calculations).
 function petXp(amount, label) {
@@ -425,6 +429,7 @@ export const useStore = create((set, get) => ({
     }
     await get().refetchMovements()
     emitFx('stock-in', { code: entry.productCode, qty: Number(entry.qty) || 0 })
+    if ((Number(entry.total) || 0) >= GRAND_STOCK_IN_VALUE) emitFx('grand', { reason: 'big-in' })
     petXp(XP.stockIn, 'รับสินค้า')
   },
 
@@ -512,6 +517,8 @@ export const useStore = create((set, get) => ({
     }
 
     await Promise.all([get().refetchProducts(), get().refetchMovements(), get().refetchBatches()])
+    emitFx('stock-import', { rows: rows.length })
+    if (rows.length >= GRAND_IMPORT_ROWS) emitFx('grand', { reason: 'import', rows: rows.length })
   },
 
   // ---------- per-year data (Settings → ข้อมูลรายปี) ----------
@@ -527,6 +534,7 @@ export const useStore = create((set, get) => ({
     })
     if (error) return { error, missing: isMissingFunction(error) }
     await Promise.all([get().refetchMovements(), get().refetchBatches()])
+    emitFx('grand', { reason: 'year-close' })
     return { data }
   },
 

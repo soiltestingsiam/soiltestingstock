@@ -12,11 +12,14 @@ import { useStore } from '../store/useStore'
 import { thaiCompare, formatMoney, formatNumber } from '../utils/format'
 import { exportAoaToExcel } from '../utils/export'
 import { parseProductWorkbook, planProductImport, buildProductExportAoa } from '../utils/productImport'
+import { buildStockRows } from '../utils/stockStatus'
 
 const emptyForm = { code: '', name: '', unit: 'EA', unitPrice: '', openingQty: '1' }
 
 export default function ProductList() {
   const products = useStore((s) => s.products)
+  const stockIns = useStore((s) => s.stockIns)
+  const stockOuts = useStore((s) => s.stockOuts)
   const addProduct = useStore((s) => s.addProduct)
   const updateProduct = useStore((s) => s.updateProduct)
   const deleteProduct = useStore((s) => s.deleteProduct)
@@ -32,6 +35,27 @@ export default function ProductList() {
   const [qrProduct, setQrProduct] = useState(null)
   const [dupModalOpen, setDupModalOpen] = useState(false)
   const fileInputRef = useRef(null)
+
+  // Field-Ready aura per product (read-only, same rule as สินค้าคงเหลือ)
+  const auraById = useMemo(() => {
+    const map = {}
+    try {
+      for (const r of buildStockRows(products, stockIns, stockOuts)) {
+        map[r.id] = !r.hasMovement
+          ? ['none', 'ยังไม่มีสต๊อก']
+          : r.qty < 0
+          ? ['negative', 'ยอดติดลบ — ตรวจสอบ']
+          : r.qty <= 0
+          ? ['out', 'หมดสต๊อก']
+          : r.low
+          ? ['reorder', 'ใกล้จุดสั่งซื้อ']
+          : ['ready', 'Field-Ready · พร้อมใช้งาน']
+      }
+    } catch {
+      /* decoration only — no aura if anything is off */
+    }
+    return map
+  }, [products, stockIns, stockOuts])
 
   const duplicateCodeCount = useMemo(() => {
     const counts = new Map()
@@ -235,7 +259,10 @@ export default function ProductList() {
           <tbody>
             {page.pageItems.map((p) => (
               <tr key={p.id} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
-                <td className="px-4 py-3 font-mono text-[var(--text-accent)]">{p.code}</td>
+                <td className="px-4 py-3 font-mono text-[var(--text-accent)]">
+                  {auraById[p.id] && <span className="product-aura" data-state={auraById[p.id][0]} title={auraById[p.id][1]} aria-label={auraById[p.id][1]} role="img" />}
+                  {p.code}
+                </td>
                 <td className="max-w-[320px] whitespace-normal break-words px-4 py-3">{p.name}</td>
                 <td className="px-4 py-3 text-right">{formatNumber(p.openingQty)}</td>
                 <td className="px-4 py-3 text-[var(--text-secondary)]">{p.unit}</td>

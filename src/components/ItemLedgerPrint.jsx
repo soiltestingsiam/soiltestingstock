@@ -388,6 +388,7 @@ async function capturePage(el) {
     // (otherwise off-screen) page there inside the clone
     onclone: (doc, clone) => {
       doc.documentElement.removeAttribute('data-festival') // exports are never festival-tinted
+      doc.documentElement.removeAttribute('data-skin') // …nor in the user's personal theme
       clone.parentElement.style.left = '0px'
       clone.parentElement.style.top = '0px'
     },

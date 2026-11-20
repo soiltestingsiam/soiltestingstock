@@ -124,13 +124,23 @@ export default function Stock() {
   )
 }
 
+// Field-Ready / Lab status aura: the same rule as before (stockStatus.js), shown as a pill
+// with a soft glowing dot — ready (green) · near reorder (amber) · out / below zero (red,
+// "ติดลบ · ตรวจสอบ" when the balance went negative). The glow is screen-only.
 function StatusBadge({ row }) {
   if (!row.hasMovement) return <span className="text-xs text-[var(--text-faint)]">ยังไม่มีสต๊อก</span>
-  const [label, cls] =
-    row.qty <= 0
-      ? ['หมดสต๊อก', 'bg-red-500/15 text-red-400']
+  const [state, label, cls, tip] =
+    row.qty < 0
+      ? ['negative', 'ติดลบ · ตรวจสอบ', 'bg-red-500/15 text-red-400', 'ยอดติดลบ — อาจยังไม่ได้บันทึกรับเข้า ตรวจสอบรายการ']
+      : row.qty <= 0
+      ? ['out', 'หมดสต๊อก', 'bg-red-500/15 text-red-400', 'หมดสต๊อก — เติมก่อนเบิกออกภาคสนาม']
       : row.low
-      ? ['ใกล้หมด', 'bg-amber-500/15 text-amber-300']
-      : ['ปกติ', 'bg-emerald-500/15 text-emerald-300']
-  return <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${cls}`}>{label}</span>
+      ? ['reorder', 'ใกล้หมด', 'bg-amber-500/15 text-amber-300', 'ใกล้จุดสั่งซื้อ — วางแผนเติมสต๊อก']
+      : ['ready', 'ปกติ', 'bg-emerald-500/15 text-emerald-300', 'Field-Ready — พร้อมใช้งาน / ออกภาคสนาม']
+  return (
+    <span className={`stock-aura inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${cls}`} data-state={state} title={tip}>
+      <span className="stock-aura-dot" aria-hidden="true" />
+      {label}
+    </span>
+  )
 }

@@ -9,22 +9,27 @@ import { create } from 'zustand'
 //  - reduceMotion: the user's own "ลดแอนิเมชัน" switch. The OS setting
 //    (prefers-reduced-motion) is always honoured as well; either one turns motion down.
 //  - sound / volume: Web Audio micro-sounds (src/lib/sfx.js) — OFF by default.
-// Applied as <html data-spectacle="…" data-motion="full|reduced"> so CSS can follow.
+//  - pureWork: "โหมดทำงานล้วน" — one switch that turns every bit of fun off at once for
+//    people who'd rather just work: no pet, no Supply Drop, no ranking / kudos, no festival
+//    scenes or tint, no particles, no custom cursor, no sounds. Nothing is deleted — XP,
+//    streaks and ranking points stay as they are and everything comes back when it's off.
+// Applied as <html data-spectacle="…" data-motion="full|reduced" data-pure-work> so CSS
+// can follow (pure work also forces the Eco level for CSS).
 
 export const LEVELS = [
-  { id: 'lite', label: 'Lite', th: 'เรียบง่าย', desc: 'สีธีม + ฉากนิ่ง ไม่มีอนุภาค เบาเครื่องที่สุด' },
+  { id: 'lite', label: 'Eco', th: 'ประหยัดพลังงาน', desc: 'สีธีม + ฉากนิ่ง ไม่มีอนุภาค/หางเมาส์ เบาเครื่องที่สุด' },
   { id: 'balanced', label: 'Balanced', th: 'สมดุล', desc: 'ตกแต่งพอดี แอนิเมชันเบา ๆ' },
   { id: 'grand', label: 'Grand Spectacle', th: 'อลังการ', desc: 'ม่านเปิดเทศกาล มิติลึก แสงขอบการ์ด' },
   { id: 'showstopper', label: 'Showstopper', th: 'จัดเต็ม', desc: 'อนุภาคหนาแน่น ลำแสงสปอตไลต์ ฉากปิดสุดอลังการ' },
 ]
 const RANK = { lite: 0, balanced: 1, grand: 2, showstopper: 3 }
 const LS = 'sts-spectacle'
-const DEFAULTS = { level: 'grand', reduceMotion: false, sound: false, volume: 0.6 }
+const DEFAULTS = { level: 'grand', reduceMotion: false, sound: false, volume: 0.6, pureWork: false }
 
 function load() {
   try {
     const v = JSON.parse(localStorage.getItem(LS) || 'null')
-    return { ...DEFAULTS, ...(v && typeof v === 'object' ? v : {}), level: RANK[v?.level] != null ? v.level : DEFAULTS.level }
+    return { ...DEFAULTS, ...(v && typeof v === 'object' ? v : {}), level: RANK[v?.level] != null ? v.level : DEFAULTS.level, pureWork: v?.pureWork === true }
   } catch {
     return { ...DEFAULTS }
   }
@@ -83,7 +88,9 @@ function applyMotionOverride(on) {
 function apply(state) {
   try {
     const root = document.documentElement
-    root.setAttribute('data-spectacle', state.level)
+    root.setAttribute('data-spectacle', state.pureWork ? 'lite' : state.level)
+    if (state.pureWork) root.setAttribute('data-pure-work', '')
+    else root.removeAttribute('data-pure-work')
     const reduced = state.reduceMotion || osReduced()
     root.setAttribute('data-motion', reduced ? 'reduced' : 'full')
     applyMotionOverride(state.reduceMotion)
@@ -94,8 +101,8 @@ function apply(state) {
 
 function save(state) {
   try {
-    const { level, reduceMotion, sound, volume } = state
-    localStorage.setItem(LS, JSON.stringify({ level, reduceMotion, sound, volume }))
+    const { level, reduceMotion, sound, volume, pureWork } = state
+    localStorage.setItem(LS, JSON.stringify({ level, reduceMotion, sound, volume, pureWork }))
   } catch {
     /* storage blocked */
   }
@@ -123,10 +130,14 @@ export const useSpectacleStore = create((set, get) => ({
   setSound: (sound) => get()._set({ sound: !!sound }),
   toggleSound: () => get()._set({ sound: !get().sound }),
   setVolume: (volume) => get()._set({ volume: Math.max(0, Math.min(1, Number(volume) || 0)) }),
+  setPureWork: (pureWork) => get()._set({ pureWork: !!pureWork }),
 }))
 
-// is the show at least this big?  atLeast('grand')
-export const atLeast = (level, state = useSpectacleStore.getState()) => RANK[state.level] >= RANK[level]
+// is the show at least this big?  atLeast('grand')  (never, in pure work mode)
+export const atLeast = (level, state = useSpectacleStore.getState()) => !state.pureWork && RANK[state.level] >= RANK[level]
+// "โหมดทำงานล้วน" — all fun off
+export const isPureWork = (state = useSpectacleStore.getState()) => !!state.pureWork
+export const usePureWork = () => useSpectacleStore((s) => !!s.pureWork)
 // motion turned down by the OS or by the user's switch
 export const motionReduced = (state = useSpectacleStore.getState()) => !!state.reduceMotion || osReduced()
 
@@ -134,8 +145,9 @@ export function useSpectacle() {
   const level = useSpectacleStore((s) => s.level)
   const reduceMotion = useSpectacleStore((s) => s.reduceMotion)
   const sound = useSpectacleStore((s) => s.sound)
+  const pureWork = useSpectacleStore((s) => !!s.pureWork)
   const reduced = reduceMotion || osReduced()
-  return { level, reduced, sound, atLeast: (l) => RANK[level] >= RANK[l] }
+  return { level, reduced, sound: sound && !pureWork, pureWork, atLeast: (l) => !pureWork && RANK[level] >= RANK[l] }
 }
 
 export default useSpectacleStore

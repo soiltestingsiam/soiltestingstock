@@ -104,7 +104,13 @@ export default function QrScannerModal({ open, onClose, onResult }) {
     <Modal open={open} onClose={onClose} title="สแกนคิวอาร์">
       <div className="relative mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-xl bg-black">
         <video ref={videoRef} muted className="h-full w-full object-cover" />
-        <div className="pointer-events-none absolute inset-[18%] rounded-lg border-2 border-violet-400/80" />
+        <div className="qr-scan-frame pointer-events-none absolute inset-[18%] rounded-lg border-2 border-violet-400/80" aria-hidden="true">
+          <span className="qr-scan-corner tl" />
+          <span className="qr-scan-corner tr" />
+          <span className="qr-scan-corner bl" />
+          <span className="qr-scan-corner br" />
+          <span className="qr-scan-laser" />
+        </div>
       </div>
       <canvas ref={canvasRef} className="hidden" />
       <p className="mt-3 text-center text-sm text-[var(--text-muted)]">ส่อง QR Code ของสินค้าให้อยู่ในกรอบ</p>

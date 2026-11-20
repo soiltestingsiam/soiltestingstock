@@ -12,11 +12,13 @@ import {
   ShieldCheck,
   X,
   History,
+  Trophy,
 } from 'lucide-react'
 import SettingsModal from './SettingsModal'
 import SoundToggle from './SoundToggle'
 import SealLogo from './SealLogo'
 import { useAuthStore, useCurrentUser, usePendingCount, useIsAdmin } from '../store/useAuthStore'
+import { usePureWork } from '../store/useSpectacleStore'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Home', icon: Home, end: true },
@@ -25,6 +27,7 @@ const NAV_ITEMS = [
   { to: '/stock-out', label: 'Stock Out', icon: PackageMinus },
   { to: '/stock', label: 'Stock', icon: BarChart3 },
   { to: '/reports', label: 'Reports', icon: ClipboardList },
+  { to: '/ranking', label: 'อันดับทีม', icon: Trophy, fun: true },
   { to: '/audit-log', label: 'LOG การใช้งาน', icon: History, adminOnly: true },
 ]
 
@@ -33,6 +36,7 @@ export default function Sidebar({ mobileOpen = false, onClose = () => {} }) {
   const logout = useAuthStore((s) => s.logout)
   const pendingCount = usePendingCount()
   const isAdmin = useIsAdmin()
+  const pureWork = usePureWork()
   const navigate = useNavigate()
   const [settingsOpen, setSettingsOpen] = useState(false)
 
@@ -76,7 +80,7 @@ export default function Sidebar({ mobileOpen = false, onClose = () => {} }) {
 
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <ul className="stagger flex flex-col gap-1">
-            {NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin).map((item) => (
+            {NAV_ITEMS.filter((item) => (!item.adminOnly || isAdmin) && (!item.fun || !pureWork)).map((item) => (
               <li key={item.to}>
                 <NavLink
                   to={item.to}

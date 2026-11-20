@@ -14,6 +14,7 @@ import { isValidDDMMYYYY, todayDDMMYYYY } from '../utils/date'
 import { formatMoney, formatNumber, lineTotal } from '../utils/format'
 import { filterForProduct, sumMovements } from '../utils/stockCalc'
 import { fifoOutCosts } from '../utils/fifoCost'
+import FifoTimeline from '../components/FifoTimeline'
 
 function makeEmptyForm() {
   return {
@@ -229,6 +230,19 @@ export default function StockOut() {
                     className={inputClass('cursor-not-allowed opacity-80')}
                   />
                 </FormRow>
+                {fifo && (
+                  <FifoTimeline
+                    stockIns={stockIns}
+                    stockOuts={stockOuts}
+                    products={products}
+                    productId={form.productId}
+                    productCode={form.productCode}
+                    date={form.date}
+                    qty={form.qty}
+                    editingId={editingId}
+                    unit={products.find((p) => p.id === form.productId)?.unit || ''}
+                  />
+                )}
               </>
             )}
             <FormRow label="10. หมายเหตุ">
@@ -268,7 +282,8 @@ export default function StockOut() {
           )}
           <button
             type="submit"
-            className="flex items-center gap-2 rounded-full bg-orange-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-500"
+            data-magnetic
+            className="btn-shimmer flex items-center gap-2 rounded-full bg-orange-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-500"
           >
             <Save size={16} /> {editingId ? 'บันทึกการแก้ไข' : 'Save'}
           </button>

@@ -43,14 +43,22 @@ export default function ProductQrModal({ product, onClose }) {
   return (
     <Modal open onClose={onClose} title="QR Code สินค้า">
       <div className="flex flex-col items-center gap-3">
-        <div className="rounded-xl bg-white p-3">
-          {dataUrl ? (
-            <img src={dataUrl} alt={`QR ${product.code}`} className="h-56 w-56" />
-          ) : (
-            <div className="h-56 w-56" />
-          )}
+        {/* holographic tag card (screen only — download / print use the plain QR image) */}
+        <div className="qr-holo">
+          <span className="qr-holo-foil" aria-hidden="true" />
+          <div className="qr-holo-head" aria-hidden="true">
+            <span>STS · ASSET TAG</span>
+            <span>SOIL TESTING SIAM</span>
+          </div>
+          <div className="relative rounded-xl bg-white p-3">
+            {dataUrl ? (
+              <img src={dataUrl} alt={`QR ${product.code}`} className="h-56 w-56" />
+            ) : (
+              <div className="h-56 w-56" />
+            )}
+          </div>
+          <div className="relative mt-2 text-center font-mono text-lg font-bold text-[var(--text-accent)]">{product.code}</div>
         </div>
-        <div className="font-mono text-lg font-bold text-[var(--text-accent)]">{product.code}</div>
         <div className="text-center text-sm text-[var(--text-secondary)]">{product.name}</div>
         <div className="mt-2 flex gap-3">
           <button

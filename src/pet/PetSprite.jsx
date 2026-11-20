@@ -164,6 +164,19 @@ function HeadItem({ id, u }) {
           <circle cx="100" cy="49.5" r="3" fill="#22c55e" />
         </g>
       )
+    case 'hardhat':
+      // a field engineer's safety helmet (Geotech Classic) with the company's STS badge
+      return (
+        <g>
+          <path d="M62 56 Q62 18 100 15 Q138 18 138 56 Z" fill="#facc15" stroke="#ca8a04" strokeWidth="2" strokeLinejoin="round" />
+          <path d="M100 16 V54" stroke="#eab308" strokeWidth="7" strokeLinecap="round" />
+          <path d="M100 16 V54" stroke="#fde047" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M74 30 Q82 22 92 20" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" opacity=".55" fill="none" />
+          <path d="M52 58 Q100 46 148 58 Q150 63 144 64 Q100 54 56 64 Q50 63 52 58 Z" fill="#eab308" stroke="#ca8a04" strokeWidth="1.5" />
+          <rect x="110" y="34" width="17" height="11" rx="2.5" fill="#1e3a8a" />
+          <text x="118.5" y="42.6" textAnchor="middle" fontSize="7.5" fontWeight="800" fill="#fde68a" fontFamily="Inter, sans-serif">STS</text>
+        </g>
+      )
     case 'tophat':
       return (
         <g transform="rotate(8 100 46)">
@@ -199,6 +212,16 @@ function FaceItem({ id, L, R }) {
       </g>
     )
   }
+  if (id === 'ar-visor') {
+    // a sleek AR visor with a HUD glint (cyber skin)
+    return (
+      <g>
+        <path d={`M${L[0] - 20} ${L[1] - 6} Q100 ${L[1] - 16} ${R[0] + 20} ${R[1] - 6} L${R[0] + 18} ${R[1] + 9} Q100 ${R[1] + 2} ${L[0] - 18} ${L[1] + 9} Z`} fill="rgba(34,211,238,.32)" stroke="#22d3ee" strokeWidth="2" />
+        <path d={`M${L[0] - 10} ${L[1] + 1} H${L[0] + 6} M${R[0] - 6} ${R[1] + 1} H${R[0] + 10}`} stroke="#f0abfc" strokeWidth="1.6" strokeLinecap="round" className="pet-hud" />
+        <circle cx={R[0] + 13} cy={R[1] - 3} r="2" fill="#d946ef" className="pet-hud" />
+      </g>
+    )
+  }
   return null
 }
 
@@ -206,6 +229,23 @@ const COLLAR = 'M64 133 Q100 153 136 133'
 
 function NeckItem({ id, u }) {
   switch (id) {
+    case 'gold-chain':
+      // a fine gold chain with a small pendant (minimal skin)
+      return (
+        <g>
+          <path d={COLLAR} stroke="#d4af37" strokeWidth="2.2" strokeDasharray="2.4 1.6" fill="none" />
+          <path d="M100 143 V150" stroke="#d4af37" strokeWidth="1.4" />
+          <path d="M100 150 L105 156 L100 162 L95 156 Z" fill="#f5e6b8" stroke="#b8860b" strokeWidth="1" />
+        </g>
+      )
+    case 'neon-collar':
+      return (
+        <g>
+          <path d={COLLAR} stroke="#0b1024" strokeWidth="8" fill="none" strokeLinecap="round" />
+          <path d={COLLAR} stroke="#22d3ee" strokeWidth="2.4" fill="none" strokeLinecap="round" className="pet-hud" />
+          <circle cx="100" cy="146" r="3.4" fill="#d946ef" />
+        </g>
+      )
     case 'xmas-scarf':
       return (
         <g>
@@ -337,6 +377,101 @@ function NeckItem({ id, u }) {
   }
 }
 
+// a garment over the body (walk pose) — clipped to the body shape
+function BodyItem({ id, u }) {
+  if (id === 'hivis') {
+    // a field-engineer's hi-vis vest: fluorescent panels, silver reflective tape, a pen pocket
+    return (
+      <g clipPath={`url(#bc-${u})`}>
+        <path d="M54 124 H93 L97 200 H54 Z" fill="#d9f20f" />
+        <path d="M146 124 H107 L103 200 H146 Z" fill="#d9f20f" />
+        <path d="M93 124 L97 200 M107 124 L103 200" stroke="#9fb10a" strokeWidth="2" />
+        <rect x="54" y="150" width="92" height="7" fill="#e2e8f0" />
+        <rect x="54" y="166" width="92" height="7" fill="#e2e8f0" />
+        <path d="M54 153.5 H146 M54 169.5 H146" stroke="#ffffff" strokeWidth="1.4" opacity=".9" />
+        <rect x="74" y="136" width="12" height="9" rx="1.5" fill="#c3d90c" stroke="#9fb10a" strokeWidth="1" />
+        <path d="M78 133 V140" stroke="#1d4ed8" strokeWidth="2.2" strokeLinecap="round" />
+      </g>
+    )
+  }
+  if (id === 'yukata') {
+    // indigo yukata with white dots, a crossed collar and an orange obi
+    return (
+      <g clipPath={`url(#bc-${u})`}>
+        <rect x="56" y="124" width="88" height="72" fill="#25407d" />
+        {Array.from({ length: 18 }, (_, i) => (
+          <circle key={i} cx={64 + (i % 6) * 14 + (Math.floor(i / 6) % 2) * 7} cy={140 + Math.floor(i / 6) * 16} r="2.2" fill="#e0e7ff" opacity=".8" />
+        ))}
+        <path d="M84 128 L102 168 M116 128 L98 168" stroke="#f8fafc" strokeWidth="6" />
+        <rect x="56" y="166" width="88" height="11" fill="#f97316" />
+        <path d="M56 170 H144" stroke="#fdba74" strokeWidth="1.5" />
+      </g>
+    )
+  }
+  return null
+}
+
+// something held by the front paws (walk pose)
+function PropItem({ id }) {
+  switch (id) {
+    case 'toro':
+      // a small tōrō lantern (ลอยกระทง × japanese)
+      return (
+        <g className="pet-sway" style={{ transformOrigin: '142px 150px' }}>
+          <ellipse cx="146" cy="178" rx="20" ry="16" fill="#ffb84d" opacity=".22" />
+          <path d="M136 166 L146 160 L156 166 Z" fill="#3b2516" />
+          <rect x="138" y="166" width="16" height="18" fill="#ffe6a8" />
+          <path d="M138 166 V184 M154 166 V184 M138 175 H154" stroke="#5a3a22" strokeWidth="1.6" />
+          <rect x="135" y="184" width="22" height="4" rx="1" fill="#4a2e1a" />
+        </g>
+      )
+    case 'uchiwa':
+      // a round summer fan (สงกรานต์ × japanese)
+      return (
+        <g className="pet-sway" style={{ transformOrigin: '140px 190px' }}>
+          <path d="M140 190 L146 168" stroke="#8b5a2b" strokeWidth="3" strokeLinecap="round" />
+          <circle cx="150" cy="156" r="15" fill="#fff7ed" stroke="#fb923c" strokeWidth="1.6" />
+          <circle cx="150" cy="156" r="6" fill="#dc2626" />
+          <path d="M138 162 q6 -4 12 0" stroke="#38bdf8" strokeWidth="1.6" fill="none" />
+        </g>
+      )
+    case 'soil-core':
+      // a clear sampling tube with soil layers inside (the company's daily work)
+      return (
+        <g className="pet-sway" style={{ transformOrigin: '146px 196px' }}>
+          <rect x="139" y="150" width="14" height="44" rx="4" fill="#e2e8f0" opacity=".55" stroke="#94a3b8" strokeWidth="1.4" />
+          <rect x="141" y="156" width="10" height="9" fill="#7c4a26" />
+          <rect x="141" y="165" width="10" height="8" fill="#a8703e" />
+          <rect x="141" y="173" width="10" height="9" fill="#d6b477" />
+          <rect x="141" y="182" width="10" height="9" rx="2" fill="#6b7280" />
+          <rect x="137" y="146" width="18" height="6" rx="2" fill="#2563eb" />
+          <path d="M143 158 v30" stroke="#fff" strokeWidth="1.2" opacity=".45" />
+        </g>
+      )
+    case 'clipboard':
+      // the engineer-in-training's checklist (while there is an urgent stock quest)
+      return (
+        <g className="pet-sway" style={{ transformOrigin: '144px 168px' }}>
+          <rect x="132" y="160" width="26" height="32" rx="3" fill="#a16207" />
+          <rect x="135" y="164" width="20" height="25" rx="1.5" fill="#fffdf6" />
+          <rect x="139" y="157" width="12" height="6" rx="2" fill="#94a3b8" />
+          <path d="M138 171 l2 2 3 -4 M138 178 l2 2 3 -4" stroke="#16a34a" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+          <path d="M145 171 H152 M145 178 H152 M139 184 H152" stroke="#94a3b8" strokeWidth="1.4" strokeLinecap="round" />
+        </g>
+      )
+    case 'omamori':
+      return (
+        <g className="pet-sway" style={{ transformOrigin: '146px 160px' }}>
+          <path d="M146 160 V166" stroke="#d4a017" strokeWidth="1.4" />
+          <rect x="139" y="166" width="14" height="18" rx="3" fill="#dc2626" stroke="#d4a017" strokeWidth="1" />
+          <path d="M142 172 H150 M142 176 H150" stroke="#fde68a" strokeWidth="1.2" />
+        </g>
+      )
+    default:
+      return null
+  }
+}
+
 function BackItem({ id }) {
   if (id !== 'wings') return null
   const wing = 'M62 134 C30 110 12 124 18 142 C28 140 32 148 26 158 C40 156 48 162 46 172 C58 162 66 148 62 134 Z'
@@ -370,6 +505,25 @@ function AuraItem({ id, u }) {
         {cols.map((c, i) => (
           <circle key={c} cx="100" cy="112" r={96 - i * 5} fill="none" stroke={c} strokeWidth="4.5" strokeDasharray="38 10" />
         ))}
+      </g>
+    )
+  }
+  if (id === 'strata') {
+    // rings in soil colours, slowly turning (Geotech)
+    const cols = ['#7c4a26', '#a8703e', '#d6b477', '#6b7280']
+    return (
+      <g className="pet-aura-spin" style={{ transformOrigin: '100px 118px' }} opacity=".7">
+        {cols.map((c, i) => (
+          <circle key={c} cx="100" cy="118" r={94 - i * 6} fill="none" stroke={c} strokeWidth="3.5" strokeDasharray={`${26 + i * 4} 12`} />
+        ))}
+      </g>
+    )
+  }
+  if (id === 'neon') {
+    return (
+      <g className="pet-aura-spin" style={{ transformOrigin: '100px 120px' }}>
+        <ellipse cx="100" cy="120" rx="92" ry="92" fill="none" stroke="#22d3ee" strokeWidth="1.6" strokeDasharray="10 14" opacity=".75" />
+        <ellipse cx="100" cy="120" rx="84" ry="84" fill="none" stroke="#d946ef" strokeWidth="1" strokeDasharray="4 18" opacity=".7" />
       </g>
     )
   }
@@ -795,10 +949,12 @@ export default function PetSprite({
       <ellipse cx="100" cy="160" rx="40" ry="32" fill={`url(#body-${u})`} stroke={outline} strokeOpacity=".45" strokeWidth="2" />
       <ellipse cx="100" cy="168" rx="23" ry="21" fill={c.belly} />
       <g clipPath={`url(#bc-${u})`}>{bodyPattern}</g>
+      {outfit.body && <BodyItem id={outfit.body} u={u} />}
       {leg(78, 172, 28, legFill, 'pet-leg-a', 87)}
       {leg(104, 172, 28, legFill, 'pet-leg-b', 113)}
       {outfitNeck}
       {head}
+      {outfit.prop && <PropItem id={outfit.prop} />}
     </svg>
   )
 }

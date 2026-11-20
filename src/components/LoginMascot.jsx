@@ -1,5 +1,6 @@
 import PetSprite from '../pet/PetSprite'
 import { LOGIN_CAT, resolveOutfit } from '../pet/petData'
+import { useThemeStore } from '../store/useThemeStore'
 
 // The login page's own mascot: "มณีสยาม", an exclusive cat that is never rolled for any
 // user and never changes (whoever is typing). It peeks over the sign-in card:
@@ -9,7 +10,8 @@ import { LOGIN_CAT, resolveOutfit } from '../pet/petData'
 // Purely decorative: aria-hidden, pointer-events none.
 
 export default function LoginMascot({ festival = 'none', gaze = { x: 0, y: 0 }, covering = false, waving = false, hello = false }) {
-  const outfit = { ...resolveOutfit(festival), aura: 'goldaura' }
+  const skin = useThemeStore((s) => s.skin)
+  const outfit = { ...resolveOutfit(festival, {}, skin), aura: 'goldaura' }
   const vars = { '--gx': gaze.x, '--gy': gaze.y }
 
   return (
