@@ -56,6 +56,7 @@ function rowToMovement(row) {
     year: row.reference_year ?? undefined,
     source: row.source,
     importBatchId: row.import_batch_id,
+    createdAt: row.created_at ?? null, // when it was keyed in (the home page's "วันนี้")
   }
   return row.direction === 'in'
     ? { ...base, supplier: row.supplier ?? '', po: row.po ?? '', soLot: row.so_lot ?? '', customer: row.customer ?? '' }

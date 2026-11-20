@@ -3,13 +3,15 @@ import { Link } from 'react-router-dom'
 import { ArrowDownToLine, ArrowUpFromLine, AlertTriangle, CheckCircle2, ChevronRight } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useAuthStore } from '../store/useAuthStore'
-import { buildStockRows, lowStockRows, todaysMovements, LOW_STOCK_THRESHOLD } from '../utils/stockStatus'
+import { buildStockRows, lowStockRows, LOW_STOCK_THRESHOLD } from '../utils/stockStatus'
+import { todaysActivity } from '../utils/todayActivity'
 import { formatNumber } from '../utils/format'
 import CountUp from './CountUp'
 
-// "วันนี้" at a glance on the home page: a greeting, today's receipts / issues (by the
-// document date, same as the reports) and how many products are running low. Read-only —
-// built from the data already loaded, with the same rules as the Stock page.
+// "วันนี้" at a glance on the home page: a greeting, today's receipts / issues (keyed in
+// today — whatever the document's own date — or dated today; see utils/todayActivity.js)
+// and how many products are running low. Read-only — built from the data already loaded,
+// with the same rules as the Stock page.
 
 // The warehouse "pulse" for today — also drives the dashboard's light:
 //   activity: calm (nothing yet) · busy (1–9 lines today) · hot (10+); alert = low stock
@@ -18,7 +20,7 @@ export function useTodayPulse() {
   const stockIns = useStore((s) => s.stockIns)
   const stockOuts = useStore((s) => s.stockOuts)
   return useMemo(() => {
-    const today = todaysMovements(stockIns, stockOuts)
+    const today = todaysActivity(stockIns, stockOuts)
     const low = lowStockRows(buildStockRows(products, stockIns, stockOuts))
     const moves = today.inCount + today.outCount
     return {
@@ -97,7 +99,7 @@ export default function TodaySummary({ pulse: given }) {
           icon={<ArrowDownToLine size={20} />}
           label="รับเข้าวันนี้"
           value={count(today.inCount)}
-          hint={today.inCount ? `${formatNumber(today.inProducts)} สินค้า` : 'ยังไม่มีรายการรับเข้า'}
+          hint={today.inCount ? `${formatNumber(today.inProducts)} สินค้า${today.inBackdated ? ` · เอกสารย้อนหลัง ${formatNumber(today.inBackdated)}` : ''}` : 'ยังไม่มีรายการรับเข้า'}
           glow={today.inCount ? 'glow-busy' : ''}
         />
         <Tile
@@ -106,7 +108,7 @@ export default function TodaySummary({ pulse: given }) {
           icon={<ArrowUpFromLine size={20} />}
           label="จ่ายออกวันนี้"
           value={count(today.outCount)}
-          hint={today.outCount ? `${formatNumber(today.outProducts)} สินค้า` : 'ยังไม่มีรายการจ่ายออก'}
+          hint={today.outCount ? `${formatNumber(today.outProducts)} สินค้า${today.outBackdated ? ` · เอกสารย้อนหลัง ${formatNumber(today.outBackdated)}` : ''}` : 'ยังไม่มีรายการจ่ายออก'}
           glow={today.outCount ? 'glow-busy' : ''}
         />
         {low.length > 0 ? (
@@ -136,7 +138,7 @@ export default function TodaySummary({ pulse: given }) {
           {PULSE_TEXT[pulse.activity]}
           {pulse.alert ? ' · มีสินค้าใกล้หมด' : ''}
         </p>
-        <p className="text-[11px] text-[var(--text-secondary)]">นับตามวันที่ในเอกสาร (เหมือนในรายงาน) · ไม่รวมยอดยกมา</p>
+        <p className="text-[11px] text-[var(--text-secondary)]">นับรายการที่บันทึกวันนี้ (รวมเอกสารลงวันที่ย้อนหลัง) และเอกสารลงวันที่วันนี้ · ไม่รวมยอดยกมา</p>
       </div>
     </section>
   )
