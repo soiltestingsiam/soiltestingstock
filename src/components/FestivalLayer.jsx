@@ -30,10 +30,29 @@ function useAfterLoad() {
   return ready
 }
 
+// Real-time light: <html data-daypart> = dawn (05–08) · day (08–16) · dusk (16–19) ·
+// night (19–05), re-checked every 5 minutes. The festival scenes tint themselves by it
+// (CSS); text and cards are never touched.
+export function daypartOf(hour) {
+  if (hour >= 5 && hour < 8) return 'dawn'
+  if (hour >= 8 && hour < 16) return 'day'
+  if (hour >= 16 && hour < 19) return 'dusk'
+  return 'night'
+}
+function useDaypart() {
+  useEffect(() => {
+    const apply = () => document.documentElement.setAttribute('data-daypart', daypartOf(new Date().getHours()))
+    apply()
+    const t = setInterval(apply, 5 * 60 * 1000)
+    return () => clearInterval(t)
+  }, [])
+}
+
 export default function FestivalLayer() {
   const festival = useActiveFestival()
   const { pathname } = useLocation()
   const ready = useAfterLoad()
+  useDaypart()
   if (!festival || festival === 'none') return null
   const login = pathname === '/login'
   return (

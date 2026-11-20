@@ -52,6 +52,14 @@ export default function StockIn() {
       const row = stockIns.find((t) => t.id === editId)
       if (row) handleEdit(row)
       setSearchParams({}, { replace: true })
+      return
+    }
+    // ?product=<id> — from the pet's "ภารกิจด่วน" shortcut: start a receipt for that product
+    const productId = searchParams.get('product')
+    if (productId) {
+      const p = products.find((x) => x.id === productId)
+      if (p) handleProductSelect(p.code, p)
+      setSearchParams({}, { replace: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
@@ -228,7 +236,8 @@ export default function StockIn() {
           )}
           <button
             type="submit"
-            className="flex items-center gap-2 rounded-full bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500"
+            data-magnetic
+            className="btn-shimmer flex items-center gap-2 rounded-full bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500"
           >
             <Save size={16} /> {editingId ? 'บันทึกการแก้ไข' : 'Save'}
           </button>

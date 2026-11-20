@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AlertTriangle } from 'lucide-react'
 import PawLoader from './components/PawLoader'
@@ -15,11 +15,20 @@ const Stock = lazy(() => import('./pages/Stock'))
 const Reports = lazy(() => import('./pages/Reports'))
 const ProductList = lazy(() => import('./pages/ProductList'))
 const AuditLog = lazy(() => import('./pages/AuditLog'))
+// อันดับทีม & สัตว์เลี้ยงเพื่อนร่วมทีม (hidden in โหมดทำงานล้วน)
+const Ranking = lazy(() => import('./pages/Ranking'))
 // each user's pet walking along the bottom of every page (signed-in only)
 const PetCompanion = lazy(() => import('./components/PetCompanion'))
 import UpdatePrompt from './components/UpdatePrompt'
 import FestivalLayer from './components/FestivalLayer'
+// cursor, trails, click particles, tilt, celebrations — after the page has loaded
+const InteractionLayer = lazy(() => import('./components/InteractionLayer'))
 import FestivalWelcome from './components/FestivalWelcome'
+import FxBoundary from './components/FxBoundary'
+import RouteWarp from './components/RouteWarp'
+// Supply Drop — EXP from real active time (signed-in only, lazy)
+const SupplyDrop = lazy(() => import('./components/SupplyDrop'))
+import { usePureWork } from './store/useSpectacleStore'
 import { useFestivalStore } from './store/useFestivalStore'
 import { useThemeStore } from './store/useThemeStore'
 import { useStore } from './store/useStore'
@@ -42,7 +51,7 @@ function RequireData({ children }) {
     )
   }
   if (loading) {
-    return <PawLoader text="กำลังโหลดข้อมูล..." />
+    return <PawLoader text="กำลังโหลดข้อมูล..." skeleton />
   }
   return children
 }
@@ -56,10 +65,34 @@ function AdminOnly({ children }) {
 
 export default function App() {
   const theme = useThemeStore((s) => s.theme)
+  const skin = useThemeStore((s) => s.skin)
+  // "โหมดทำงานล้วน": no pet, no Supply Drop, no festival scenes, no particles / cursor
+  const pureWork = usePureWork()
+  // the interaction layer loads once the page is up and idle (keeps first paint fast)
+  const [fxReady, setFxReady] = useState(false)
+  useEffect(() => {
+    let idle
+    let t
+    const go = () => {
+      if (window.requestIdleCallback) idle = window.requestIdleCallback(() => setFxReady(true), { timeout: 1800 })
+      else t = setTimeout(() => setFxReady(true), 400)
+    }
+    if (document.readyState === 'complete') go()
+    else window.addEventListener('load', go, { once: true })
+    return () => {
+      window.removeEventListener('load', go)
+      if (idle && window.cancelIdleCallback) window.cancelIdleCallback(idle)
+      clearTimeout(t)
+    }
+  }, [])
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
+  // the user's personal theme (classic · japanese · cyber · minimal)
+  useEffect(() => {
+    document.documentElement.setAttribute('data-skin', skin)
+  }, [skin])
 
   // Restore the Supabase session (if any) once, then load stock data only while an
   // approved user is signed in — before that RLS returns nothing anyway.
@@ -90,6 +123,8 @@ export default function App() {
   useEffect(() => {
     if (!approvedUserId) return
     const { session, profile } = useAuthStore.getState()
+    // the account's look (theme / skin / cursor) follows the user to this device
+    useThemeStore.getState().adoptRemote(session?.user?.user_metadata?.prefs)
     usePetStore.getState().init(session?.user, profile?.username)
     return () => usePetStore.getState().reset()
   }, [approvedUserId])
@@ -162,6 +197,16 @@ export default function App() {
         }
       />
       <Route
+        path="/ranking"
+        element={
+          <ProtectedRoute>
+            <RequireData>
+              <Ranking />
+            </RequireData>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/audit-log"
         element={
           <ProtectedRoute>
@@ -173,18 +218,51 @@ export default function App() {
       />
     </Routes>
     </Suspense>
+    {/* Everything below except UpdatePrompt is decoration: each piece sits in its own
+        FxBoundary (an error just hides that piece) and is left out in โหมดทำงานล้วน. */}
     {/* seasonal decorations (ลอยกระทง / ฮาโลวีน / ...) on every page */}
-    <FestivalLayer />
+    {!pureWork && (
+      <FxBoundary name="festival">
+        <FestivalLayer />
+      </FxBoundary>
+    )}
     {/* celebratory "which festival" popup shown once after each fresh login */}
-    <FestivalWelcome />
+    {!pureWork && (
+      <FxBoundary name="festival-welcome">
+        <FestivalWelcome />
+      </FxBoundary>
+    )}
     {/* the user's pet companion (hides itself on /login and when the user hides it) */}
-    {approvedUserId && (
-      <Suspense fallback={null}>
-        <PetCompanion />
-      </Suspense>
+    {approvedUserId && !pureWork && (
+      <FxBoundary name="pet">
+        <Suspense fallback={null}>
+          <PetCompanion />
+        </Suspense>
+      </FxBoundary>
+    )}
+    {/* Supply Drop: EXP from real active time, in the corner */}
+    {approvedUserId && !pureWork && fxReady && (
+      <FxBoundary name="supply-drop">
+        <Suspense fallback={null}>
+          <SupplyDrop />
+        </Suspense>
+      </FxBoundary>
+    )}
+    {/* a short warp of light between pages */}
+    {!pureWork && (
+      <FxBoundary name="route-warp">
+        <RouteWarp />
+      </FxBoundary>
     )}
     {/* "มีเวอร์ชันใหม่" popup — on every page, including login */}
     <UpdatePrompt />
+    {fxReady && !pureWork && (
+      <FxBoundary name="interaction">
+        <Suspense fallback={null}>
+          <InteractionLayer />
+        </Suspense>
+      </FxBoundary>
+    )}
     </>
   )
 }

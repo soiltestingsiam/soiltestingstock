@@ -30,9 +30,12 @@ async function captureElement(element) {
   const root = document.documentElement
   const isLight = root.getAttribute('data-theme') === 'light'
   const festival = root.getAttribute('data-festival')
+  const skin = root.getAttribute('data-skin')
   if (festival) root.removeAttribute('data-festival')
+  if (skin) root.removeAttribute('data-skin')
   const themeBg = getComputedStyle(root).getPropertyValue('--bg-card').trim()
   if (festival) root.setAttribute('data-festival', festival)
+  if (skin) root.setAttribute('data-skin', skin)
   const backgroundColor = isLight ? themeBg || '#ffffff' : '#0B0F19'
   const scale = 2
   let breaks = []
@@ -42,7 +45,9 @@ async function captureElement(element) {
     width: fullWidth,
     windowWidth: fullWidth + 400,
     onclone: (doc, clone) => {
+      // exports never carry the festival tint or the user's personal theme
       doc.documentElement.removeAttribute('data-festival')
+      doc.documentElement.removeAttribute('data-skin')
       clone.style.width = `${fullWidth}px`
       clone.querySelectorAll('.overflow-x-auto, .overflow-auto').forEach((el) => {
         el.style.overflow = 'visible'

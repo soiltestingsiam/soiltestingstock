@@ -4,6 +4,8 @@ import { Lock, User, Eye, EyeOff, LogIn, UserPlus, Loader2, FlaskConical, Award,
 import SealLogo from '../components/SealLogo'
 import WebStandardsModal from '../components/WebStandardsModal'
 import LoginMascot from '../components/LoginMascot'
+import FxBoundary from '../components/FxBoundary'
+import { usePureWork } from '../store/useSpectacleStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useFestivalStore, useActiveFestival } from '../store/useFestivalStore'
 
@@ -199,6 +201,7 @@ const loginInput = (extra = '') =>
 
 export default function Login() {
   const navigate = useNavigate()
+  const pureWork = usePureWork()
   const login = useAuthStore((s) => s.login)
   const register = useAuthStore((s) => s.register)
   const alreadyIn = useAuthStore((s) => !!s.session && s.profile?.status === 'approved')
@@ -392,7 +395,11 @@ export default function Login() {
           <span />
           <span />
         </div>
-        <LoginMascot festival={festival} gaze={gaze} covering={covering} waving={waving && !focusField} hello={hello} />
+        {!pureWork && (
+          <FxBoundary name="login-mascot">
+            <LoginMascot festival={festival} gaze={gaze} covering={covering} waving={waving && !focusField} hello={hello} />
+          </FxBoundary>
+        )}
         <div
           className="glow-border on anim-fade-up relative z-10 rounded-2xl border border-white/12 p-6 shadow-2xl backdrop-blur-xl sm:p-7 [animation-delay:160ms]"
           style={{ background: t.card }}
@@ -502,6 +509,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={busy}
+              data-magnetic
               className="btn-shine group mt-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/40 transition hover:brightness-110 disabled:cursor-wait disabled:opacity-70"
               style={{ backgroundImage: `linear-gradient(90deg, ${t.btnFrom}, ${t.btnTo})` }}
             >

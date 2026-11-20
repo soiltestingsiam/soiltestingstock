@@ -4,6 +4,8 @@ import { play } from '../lib/sfx'
 import { useSpectacle } from '../store/useSpectacleStore'
 import { rand, LoyDefs, SkyLantern, SkyLanterns, LoyMoon, Fireflies, Twinkles, Bat, Snow, Heart, ChineseLantern, Balloon, Blossom } from '../festival/parts'
 import { GROUNDS, BURSTS } from '../festival/grounds'
+import { SKIN_SCENES, SKIN_DRESSING } from '../festival/skinScenes'
+import { useThemeStore } from '../store/useThemeStore'
 
 // The active festival, drawn in three layers that all sit BEHIND the page content:
 //  - sky     : at the top of the page and scrolls away with it (moon, stars, webs,
@@ -305,9 +307,7 @@ const SECRETS = {
 const FINALE_CLICKS = 7 // clicks on the ground within FINALE_MS
 const FINALE_MS = 4000
 
-function Ground({ festival, onSecret }) {
-  const Scene = GROUNDS[festival]
-  const burst = BURSTS[festival]
+function Ground({ festival, onSecret, Scene = GROUNDS[festival], burst = BURSTS[festival], Dressing = null, sceneId = festival }) {
   const [fx, setFx] = useState([])
   const clicks = useRef([])
   if (!Scene) return null
@@ -350,12 +350,15 @@ function Ground({ festival, onSecret }) {
     }
   }
   return (
-    <div className={`fes-ground ${festival}`} onClick={onClick} title="คลิกเล่นได้ ✨" aria-hidden="true">
+    <div className={`fes-ground ${festival}`} data-scene={sceneId} onClick={onClick} title="คลิกเล่นได้ ✨" aria-hidden="true">
       {/* far layer: misty hills tinted by the festival (depth) */}
       <div className="fes-ground-far" />
       <div className="fes-ground-scene">
+        {Dressing && <Dressing />}
         <Scene />
       </div>
+      {/* the light of the real time of day (dawn · day · dusk · night) over the scene */}
+      <div className="fes-daylight" />
       {/* near layer: a few motes drifting in front */}
       <div className="fes-ground-near">
         {Array.from({ length: 6 }, (_, i) => (
@@ -427,7 +430,15 @@ function SecretToast({ toast }) {
 
 // Loaded lazily by FestivalLayer once the page has loaded and gone idle.
 export default function FestivalDecor({ festival, login }) {
-  const T = THEMES[festival]
+  // the festival re-dressed for the user's own theme (falls back to the classic scene)
+  const skin = useThemeStore((s) => s.skin)
+  const V = SKIN_SCENES[festival]?.[skin] || null
+  const base = THEMES[festival]
+  const T = base && { Sky: V?.Sky || base.Sky, Ambient: V?.Ambient || base.Ambient }
+  const Scene = V?.Ground || GROUNDS[festival]
+  const burst = V?.burst || BURSTS[festival]
+  const Dressing = !V?.Ground ? SKIN_DRESSING[skin] || null : null
+  const sceneId = V?.Ground ? `${festival}-${skin}` : festival
   const { atLeast, reduced } = useSpectacle()
   const [toast, setToast] = useState(null)
   useParallax(!login && !reduced && atLeast('grand') && canParallax())
@@ -445,15 +456,15 @@ export default function FestivalDecor({ festival, login }) {
 
   // login: one light layer behind the branded content (the login page doesn't scroll)
   if (login) {
-    const Scene = GROUNDS[festival]
     return (
       <div className="fes-layer fes-behind" aria-hidden="true">
         {defs}
         <T.Sky subtle />
         {particles && <T.Ambient subtle />}
         {Scene && (
-          <div className="fes-ground on-login">
+          <div className="fes-ground on-login" data-scene={sceneId}>
             <div className="fes-ground-scene">
+              {Dressing && <Dressing />}
               <Scene subtle />
             </div>
           </div>
@@ -478,7 +489,7 @@ export default function FestivalDecor({ festival, login }) {
       <div className="fes-sky" aria-hidden="true">
         <T.Sky />
       </div>
-      <Ground festival={festival} onSecret={onSecret} />
+      <Ground festival={festival} onSecret={onSecret} Scene={Scene} burst={burst} Dressing={Dressing} sceneId={sceneId} />
       <SecretToast toast={toast} />
     </>
   )

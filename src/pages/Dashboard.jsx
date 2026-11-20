@@ -1,4 +1,9 @@
+import { Link } from 'react-router-dom'
 import TopBar from '../components/TopBar'
+import FxBoundary from '../components/FxBoundary'
+import { usePureWork } from '../store/useSpectacleStore'
+import { usePetStore, dayKey } from '../store/usePetStore'
+import { levelInfo, SUPPLY_DAILY_CAP } from '../pet/petData'
 import NavCard from '../components/NavCard'
 import TodaySummary, { useTodayPulse } from '../components/TodaySummary'
 import { formatNumber } from '../utils/format'
@@ -17,8 +22,33 @@ const AURA = {
   hot: ['#10b981', '#f59e0b'],
 }
 
+// team tile (glass bento): level · coins · today's Supply Drops → the ranking page.
+// Not shown in โหมดทำงานล้วน.
+function TeamTile() {
+  const ready = usePetStore((s) => s.ready)
+  const pet = usePetStore((s) => s.pet)
+  if (!ready) return null
+  const lv = levelInfo(pet.xp).level
+  const drops = pet.supplyDay === dayKey() ? pet.supplyCount || 0 : 0
+  return (
+    <Link to="/ranking" className="team-tile glass-tile anim-fade-up mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl px-5 py-4" data-tilt>
+      <span className="text-2xl" aria-hidden="true">🏆</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold text-[var(--text-primary)]">อันดับทีม & สัตว์เลี้ยงเพื่อนร่วมทีม</span>
+        <span className="block text-xs text-[var(--text-secondary)]">ดูโพเดียม ส่งกำลังใจ แต่งโปรไฟล์และตู้เสื้อผ้า 4 ช่อง</span>
+      </span>
+      <span className="flex flex-wrap gap-2 text-xs font-semibold text-[var(--text-primary)]">
+        <span className="rounded-full border border-[var(--border-color)] px-2.5 py-1">Lv.{lv}</span>
+        <span className="rounded-full border border-amber-400/50 px-2.5 py-1">🪙 {formatNumber(pet.coins || 0)}</span>
+        <span className="rounded-full border border-[var(--border-color)] px-2.5 py-1">📦 วันนี้ {drops}/{SUPPLY_DAILY_CAP}</span>
+      </span>
+    </Link>
+  )
+}
+
 export default function Dashboard() {
   const pulse = useTodayPulse()
+  const pureWork = usePureWork()
   const [c1, c2] = AURA[pulse.activity]
   return (
     <div className="dash-root relative min-h-screen overflow-hidden" data-activity={pulse.activity} data-alert={pulse.alert ? 'low' : undefined}>
@@ -90,6 +120,11 @@ export default function Dashboard() {
             floatDelay="-3.6s"
           />
           </div>
+          {!pureWork && (
+            <FxBoundary name="team-tile">
+              <TeamTile />
+            </FxBoundary>
+          )}
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Moon, Sun, Users, Check, X, ShieldCheck, DatabaseZap, Clock, UserX, RotateCcw, KeyRound, Loader2, Sparkles, Check as CheckIcon, CalendarRange, AlertTriangle } from 'lucide-react'
+import { Moon, Sun, Users, Check, X, ShieldCheck, DatabaseZap, Clock, UserX, RotateCcw, KeyRound, Loader2, Sparkles, Check as CheckIcon, CalendarRange, AlertTriangle, Briefcase } from 'lucide-react'
 import Modal from './Modal'
 import { useThemeStore } from '../store/useThemeStore'
 import { useAuthStore, useCurrentUser, usePendingCount, useIsAdmin, useIsOwner, useStealth } from '../store/useAuthStore'
@@ -9,8 +9,11 @@ import { yearCounts, carryForward, currentBeYear } from '../utils/yearView'
 import { useFestivalStore } from '../store/useFestivalStore'
 import { usePetStore } from '../store/usePetStore'
 import { FESTIVALS, PICKER_IDS, resolveFestival, parseAnniversary, anniversaryYears } from '../festival/festivals'
-import { SPECIES, levelInfo, pickCoat } from '../pet/petData'
+import { SPECIES, levelInfo, pickCoat, resolveOutfit } from '../pet/petData'
+import PetSprite from '../pet/PetSprite'
 import { useSpectacleStore, LEVELS } from '../store/useSpectacleStore'
+import { SKINS, SKIN_IDS, CURSORS, CURSOR_IDS, resolveCursor, festivalVariant } from '../theme/skins'
+import { CursorGlyph } from '../theme/cursorShapes'
 import { preview as previewSound } from '../lib/sfx'
 
 export default function SettingsModal({ open, onClose }) {
@@ -52,6 +55,7 @@ export default function SettingsModal({ open, onClose }) {
 
       {tab === 'theme' || !isAdmin ? (
         <>
+          <PureWorkSection />
           <ThemeTab />
           <FestivalToggle />
           <PetToggle />
@@ -66,6 +70,50 @@ export default function SettingsModal({ open, onClose }) {
       )}
       <VersionInfo />
     </Modal>
+  )
+}
+
+// "โหมดทำงานล้วน" — one switch for people who'd rather just work: every bit of fun off at
+// once (pet, Supply Drop, ranking & kudos, festival scenes, particles, cursor, sounds).
+// Nothing is deleted; it all comes back when switched off. Follows the account.
+function PureWorkSection() {
+  const pureWork = useSpectacleStore((s) => !!s.pureWork)
+  const setPureWork = useThemeStore((s) => s.setPureWork)
+  return (
+    <div className={`pure-work-card mb-6 rounded-xl border p-4 ${pureWork ? 'border-emerald-500/60 bg-emerald-500/10' : 'border-[var(--border-color)] bg-[var(--bg-surface-soft)]'}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+            <Briefcase size={16} className="text-[var(--text-accent)]" /> โหมดทำงานล้วน · ปิดกิจกรรมและลูกเล่นทั้งหมด
+          </div>
+          <p className="text-xs text-[var(--text-secondary)]">
+            {pureWork
+              ? 'เปิดอยู่ — หน้าจอเรียบ นิ่ง ทำงานอย่างเดียว · ปิดเมื่อไรลูกเล่นทั้งหมดกลับมาเหมือนเดิม'
+              : 'สำหรับคนที่อยากทำงานแบบนิ่ง ๆ สบายตา — กดครั้งเดียวปิดทุกอย่างด้านล่างนี้ทันที'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setPureWork(!pureWork)}
+          aria-pressed={pureWork}
+          aria-label="โหมดทำงานล้วน (ปิดกิจกรรมและลูกเล่นทั้งหมด)"
+          className={`relative flex h-7 w-12 flex-shrink-0 items-center rounded-full transition ${pureWork ? 'bg-emerald-600' : 'bg-[var(--bg-hover-strong)]'}`}
+        >
+          <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${pureWork ? 'left-6' : 'left-1'}`} />
+        </button>
+      </div>
+      <ul className="mt-3 grid gap-1 text-[11.5px] text-[var(--text-secondary)] sm:grid-cols-2">
+        <li>🐾 ซ่อนสัตว์เลี้ยงและคำพูดของน้อง</li>
+        <li>📦 ไม่มี Supply Drop / EXP Orb</li>
+        <li>🏆 ซ่อนหน้าอันดับทีม & ปุ่มส่งกำลังใจ</li>
+        <li>🏮 ไม่มีฉากเทศกาล สีเทศกาล และอนุภาค</li>
+        <li>🖱️ ใช้เมาส์ปกติ ไม่มีหางแสง</li>
+        <li>🔇 ปิดเสียงเอฟเฟกต์ทั้งหมด</li>
+      </ul>
+      <p className="mt-2 text-[11px] text-[var(--text-muted)]">
+        ไม่ลบอะไรเลย — เลเวล สตรีค และคะแนนเดิมยังอยู่ครบ · ตั้งค่านี้ติดไปกับบัญชีของคุณทุกเครื่อง · การรับ/จ่าย/รายงานทำงานเหมือนเดิมทุกอย่าง
+      </p>
+    </div>
   )
 }
 
@@ -500,6 +548,141 @@ function ThemeTab() {
           <span className="whitespace-nowrap text-sm font-semibold text-[var(--text-primary)]">Light Mode</span>
           <span className="whitespace-nowrap text-xs text-[var(--text-secondary)]">โทนสว่าง</span>
         </button>
+      </div>
+      <LiveMiniStage />
+      <SkinPicker />
+      <CursorPicker />
+    </div>
+  )
+}
+
+// Live Mini Stage — what the chosen theme × today's festival × cursor × pet look like,
+// updating the moment anything is picked below
+function LiveMiniStage() {
+  const skin = useThemeStore((s) => s.skin)
+  const cursor = useThemeStore((s) => s.cursor)
+  const festival = useFestivalStore((s) => s.active)
+  const pureWork = useSpectacleStore((s) => !!s.pureWork)
+  const ready = usePetStore((s) => s.ready)
+  const pet = usePetStore((s) => s.pet)
+  const owner = usePetStore((s) => s.owner)
+  const k = SKINS[skin] || SKINS.geotech_classic
+  const fes = FESTIVALS[festival] ?? FESTIVALS.none
+  const variant = festivalVariant(festival, skin)
+  const { shape } = resolveCursor(cursor, skin, festival)
+  const outfit = ready ? resolveOutfit(festival, pet.wardrobe || pet.equipped, skin) : {}
+  return (
+    <div className="mini-stage mt-5" data-stage-skin={skin} data-stage-festival={festival} aria-label="ตัวอย่างสด: ธีม เทศกาล เมาส์ และสัตว์เลี้ยง">
+      <div className="mini-stage-label">
+        <span className="font-bold">Live Mini Stage</span> · {k.label}
+        {festival !== 'none' && !pureWork ? ` × ${variant?.title || `${fes.emoji} ${fes.label}`}` : ''}
+      </div>
+      <div className="mini-stage-ground" aria-hidden="true" />
+      {!pureWork && festival !== 'none' && (
+        <span className="mini-stage-fes" aria-hidden="true">
+          {fes.emoji}
+        </span>
+      )}
+      {ready && !pureWork && !pet.hidden && (
+        <div className="mini-stage-pet" style={{ '--gx': 0.4, '--gy': 0.2 }} aria-hidden="true">
+          <PetSprite species={pet.species} coat={pickCoat(pet.species, owner)} outfit={outfit} pose="walk" walking happy />
+        </div>
+      )}
+      {!pureWork && shape && (
+        <span className="mini-stage-cursor" aria-hidden="true">
+          <CursorGlyph shape={shape} size={26} />
+        </span>
+      )}
+      {pureWork && <div className="mini-stage-pure">โหมดทำงานล้วน — หน้าจอเรียบ ไม่มีลูกเล่น</div>}
+    </div>
+  )
+}
+
+// ธีมส่วนตัว — per account (follows the user to every device)
+function SkinPicker() {
+  const skin = useThemeStore((s) => s.skin)
+  const setSkin = useThemeStore((s) => s.setSkin)
+  return (
+    <div className="mt-6">
+      <div className="mb-1 text-sm font-semibold text-[var(--text-primary)]">🎨 ธีมส่วนตัว</div>
+      <p className="mb-3 text-xs text-[var(--text-secondary)]">
+        เฉพาะบัญชีของคุณ — ทุกคนเห็นเทศกาลเดียวกัน แต่ฉาก พร็อพ เมาส์ และชุดสัตว์เลี้ยงจะแปลงร่างให้เข้ากับธีมที่คุณเลือก
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="ธีมส่วนตัว">
+        {SKIN_IDS.map((id) => {
+          const k = SKINS[id]
+          const on = skin === id
+          return (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => setSkin(id)}
+              data-skin-option={id}
+              className={`skin-opt relative flex flex-col items-start gap-1 overflow-hidden rounded-xl border px-3 py-2.5 text-left transition ${
+                on ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_0_1px_#3b82f6]' : 'border-[var(--border-color)] bg-[var(--bg-surface-soft)] hover:bg-[var(--bg-hover)]'
+              }`}
+            >
+              <span className="skin-preview" data-preview={id} aria-hidden="true">
+                {k.swatch.map((c) => (
+                  <span key={c} style={{ background: c }} />
+                ))}
+              </span>
+              <span className="flex w-full items-center justify-between">
+                <span className="text-xs font-bold text-[var(--text-primary)]">{k.label}</span>
+                {on && <CheckIcon size={13} className="text-blue-500" />}
+              </span>
+              <span className="text-[11px] font-semibold text-[var(--text-primary)]">{k.th}</span>
+              <span className="text-[10.5px] leading-snug text-[var(--text-secondary)]">{k.desc}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// รูปเมาส์ — auto (by skin & festival) or a preset; off on touch screens / Eco / reduced motion
+function CursorPicker() {
+  const cursor = useThemeStore((s) => s.cursor)
+  const skin = useThemeStore((s) => s.skin)
+  const setCursor = useThemeStore((s) => s.setCursor)
+  const festival = useFestivalStore((s) => s.active)
+  const auto = resolveCursor('auto', skin, festival)
+  return (
+    <div className="mt-6">
+      <div className="mb-1 text-sm font-semibold text-[var(--text-primary)]">🖱️ รูปเมาส์ & หางแสง</div>
+      <p className="mb-3 text-xs text-[var(--text-secondary)]">
+        ใช้กับเมาส์บนคอมพิวเตอร์เท่านั้น (จอสัมผัสใช้แบบปกติ) · ระดับ Eco หรือ “ลดแอนิเมชัน” จะปิดหางแสงให้อัตโนมัติ
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="รูปเมาส์">
+        {CURSOR_IDS.map((id) => {
+          const c = CURSORS[id]
+          const on = cursor === id
+          const glyph = id === 'auto' ? auto.shape : id === 'system' ? null : id
+          return (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => setCursor(id)}
+              data-cursor-option={id}
+              className={`flex items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition ${
+                on ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_0_1px_#3b82f6]' : 'border-[var(--border-color)] bg-[var(--bg-surface-soft)] hover:bg-[var(--bg-hover)]'
+              }`}
+            >
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-slate-800">
+                <CursorGlyph shape={glyph} size={26} />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-bold text-[var(--text-primary)]">{c.label}</span>
+                <span className="block truncate text-[10.5px] text-[var(--text-secondary)]">{id === 'auto' ? `ตอนนี้: ${CURSORS[auto.shape]?.label || 'ระบบ'}` : c.desc}</span>
+              </span>
+            </button>
+          )
+        })}
       </div>
     </div>
   )

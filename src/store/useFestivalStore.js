@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { resolveFestival, parseAnniversary } from '../festival/festivals'
+import { useSpectacleStore, isPureWork } from './useSpectacleStore'
 
 // Festival theme state.
 //  - mode: WHICH festival. Chosen by the admin and stored globally in app_settings
@@ -54,8 +55,9 @@ function readEnabled() {
   }
 }
 
+// "โหมดทำงานล้วน" (pure work) hides the festival on this device just like the switch below
 function applyAttr(mode, enabled, anniv = readLocalAnniv()) {
-  const active = enabled ? resolveFestival(mode, new Date(), parseAnniversary(anniv)) : 'none'
+  const active = enabled && !isPureWork() ? resolveFestival(mode, new Date(), parseAnniversary(anniv)) : 'none'
   try {
     document.documentElement.setAttribute('data-festival', active)
   } catch {
@@ -235,6 +237,11 @@ export const useFestivalStore = create((set, get) => ({
     set({ enabled: on, active: applyAttr(get().mode, on) })
   },
 }))
+
+// pure work switched on / off → festival hidden / shown again at once
+useSpectacleStore.subscribe((s, prev) => {
+  if (!!s.pureWork !== !!prev.pureWork) useFestivalStore.getState().refresh()
+})
 
 export function useActiveFestival() {
   return useFestivalStore((s) => s.active)

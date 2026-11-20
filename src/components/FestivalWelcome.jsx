@@ -4,6 +4,8 @@ import { useFestivalStore } from '../store/useFestivalStore'
 import { FESTIVALS, festivalGreeting, parseAnniversary } from '../festival/festivals'
 import { atLeast, motionReduced } from '../store/useSpectacleStore'
 import { emitFx } from '../lib/fxBus'
+import { festivalVariant } from '../theme/skins'
+import { useThemeStore } from '../store/useThemeStore'
 
 // The festival greeting shown once right after a fresh login.
 //  - Triggered by useFestivalStore.announce() (welcomeNonce), which Login.jsx calls on a
@@ -77,7 +79,16 @@ export default function FestivalWelcome() {
       const grand = atLeast('grand') && !motionReduced()
       const level = ['showstopper', 'grand', 'balanced', 'lite'].find((l) => atLeast(l)) || 'balanced'
       const ms = DURATION[level]
-      setFes({ ...f, greeting: festivalGreeting(active, parseAnniversary(useFestivalStore.getState().anniversary)), grand, ms, dense: atLeast('showstopper') })
+      // the festival as re-imagined for the user's own theme (e.g. 灯籠流し for japanese)
+      const v = festivalVariant(active, useThemeStore.getState().skin)
+      setFes({
+        ...f,
+        ...(v ? { label: v.title, desc: v.desc } : {}),
+        greeting: festivalGreeting(active, parseAnniversary(useFestivalStore.getState().anniversary)),
+        grand,
+        ms,
+        dense: atLeast('showstopper'),
+      })
       setLeaving(false)
       emitFx('festival-curtain', { festival: active })
       timers.current.push(setTimeout(() => setLeaving(true), ms))

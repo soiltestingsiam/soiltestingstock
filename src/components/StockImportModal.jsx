@@ -108,9 +108,10 @@ export default function StockImportModal({ open, onClose, type }) {
           </p>
           <button
             onClick={handleFilePick}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border-color-strong)] bg-[var(--bg-surface-soft)] px-4 py-8 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
+            className="import-reactor relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-lg border border-dashed border-[var(--border-color-strong)] bg-[var(--bg-surface-soft)] px-4 py-8 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)]"
           >
-            <Upload size={18} /> เลือกไฟล์ .xlsx / .xls / .csv
+            <span className="import-reactor-core" aria-hidden="true" />
+            <Upload size={18} className="relative" /> <span className="relative">เลือกไฟล์ .xlsx / .xls / .csv</span>
           </button>
 
           {history.length > 0 && (

@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react'
 export default function NavCard({ to, icon, title, subtitle, description, glow, floatDelay = '0s', badge = null, badgeTone = '' }) {
   const navigate = useNavigate()
   return (
-    <div className="group glow-border card-fancy relative rounded-2xl">
+    <div className="group glow-border card-fancy relative rounded-2xl" data-tilt>
       <button
         onClick={() => navigate(to)}
         style={{
