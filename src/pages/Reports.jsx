@@ -11,7 +11,9 @@ import { buildItemLedger, buildAllStockSummary, groupByProduct, movementsForProd
 import { ddmmyyyyToSortable, todayDDMMYYYY, toThaiDate } from '../utils/date'
 import { formatMoney, formatNumber, thaiCompare } from '../utils/format'
 import { exportAoaToExcel, exportElementToPdf, exportElementsToPdf } from '../utils/export'
-import { currentBeYear, openingLabel, withoutLaterOpenings, yearLedger, yearRange, yearsWithData } from '../utils/yearView'
+import { currentBeYear, openingLabel, withoutLaterOpenings, yearLedger, yearRange, yearsWithData, yearCounts } from '../utils/yearView'
+import { emitFx } from '../lib/fxBus'
+import CountUp from '../components/CountUp'
 
 const REPORT_OPTIONS = [
   {
@@ -35,15 +37,21 @@ function startOfYear() {
 export default function Reports() {
   const [view, setView] = useState(null) // null | 'item' | 'summary'
 
+  // the pet gets its paperwork ready when a report opens
+  useEffect(() => {
+    if (view) emitFx('report-open', { kind: view })
+  }, [view])
+
   return (
     <SidebarLayout title="รายงาน (Reports)">
+      {!view && <ReportsHero />}
       {!view && (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div className="stagger grid grid-cols-1 gap-5 sm:grid-cols-2">
           {REPORT_OPTIONS.map((opt) => (
             <button
               key={opt.key}
               onClick={() => setView(opt.key)}
-              className="group flex flex-col items-start gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6 text-left shadow-card transition hover:-translate-y-1 hover:border-[var(--border-color-strong)]"
+              className="rim-card group flex flex-col items-start gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6 text-left shadow-card transition hover:-translate-y-1 hover:border-[var(--border-color-strong)]"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-slate-500 to-slate-700 text-white">
                 <ClipboardList size={22} />
@@ -73,6 +81,79 @@ export default function Reports() {
         </div>
       )}
     </SidebarLayout>
+  )
+}
+
+// ---------- Grand spotlight header (report picker) ----------
+function ReportsHero() {
+  const stockIns = useStore((s) => s.stockIns)
+  const stockOuts = useStore((s) => s.stockOuts)
+  const products = useStore((s) => s.products)
+  const year = currentBeYear()
+  const c = useMemo(() => yearCounts(stockIns, stockOuts).find((x) => x.be === year) ?? { in: 0, out: 0, opening: 0 }, [stockIns, stockOuts, year])
+  return (
+    <section className="report-hero anim-fade-up mb-6" aria-labelledby="reports-hero-title">
+      <span className="report-hero-beam" aria-hidden="true" />
+      <span className="report-hero-beam b2" aria-hidden="true" />
+      <div className="relative">
+        <div className="text-xs font-semibold tracking-[0.2em] text-[var(--text-accent)]">REPORT CENTER · ปี {year}</div>
+        <h2 id="reports-hero-title" className="mt-1 text-2xl font-extrabold text-[var(--text-primary)] sm:text-3xl">
+          ศูนย์รายงานสต็อก
+        </h2>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">เลือกรายงานด้านล่าง — ดูทีละปีพร้อมยอดยกมา และ Export PDF / Excel ได้ทันที</p>
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
+          {[
+            ['รับเข้าปีนี้', c.in, 'รายการ'],
+            ['จ่ายออกปีนี้', c.out, 'รายการ'],
+            ['สินค้าในระบบ', products.length, 'รายการ'],
+          ].map(([label, n, unit]) => (
+            <div key={label} className="report-hero-stat">
+              <div className="text-[11px] font-medium text-[var(--text-secondary)]">{label}</div>
+              <div className="text-xl font-extrabold text-[var(--text-primary)]">
+                <CountUp value={n} />
+              </div>
+              <div className="text-[11px] text-[var(--text-secondary)]">{unit}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ---------- the period's headline numbers, above a report (never part of the PDF) ----------
+function SpotlightStrip({ periodKey, title, chip, stats, inValue = 0, outValue = 0 }) {
+  const max = Math.max(Math.abs(inValue), Math.abs(outValue), 1)
+  return (
+    <section key={periodKey} className="report-spotlight anim-fade-up mb-4" aria-label={`ภาพรวม ${title}`}>
+      <span className="report-spotlight-sweep" aria-hidden="true" />
+      <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="flex min-w-0 items-center gap-2 lg:w-44 lg:flex-col lg:items-start">
+          <span className="rounded-full bg-blue-600 px-2.5 py-0.5 text-[11px] font-bold text-white">{chip}</span>
+          <span className="truncate text-sm font-bold text-[var(--text-primary)]">{title}</span>
+        </div>
+        <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-4">
+          {stats.map((st) => (
+            <div key={st.label} className="report-stat">
+              <div className="text-[11px] font-medium text-[var(--text-secondary)]">{st.label}</div>
+              <div className="truncate text-base font-extrabold text-[var(--text-primary)]">
+                <CountUp value={st.value} format={(n) => formatMoney(n)} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-col gap-1.5 lg:w-56" aria-hidden="true">
+          <div className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+            <span className="w-8">รับ</span>
+            <span className="report-bar"><span className="in" style={{ width: `${(Math.abs(inValue) / max) * 100}%` }} /></span>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+            <span className="w-8">จ่าย</span>
+            <span className="report-bar"><span className="out" style={{ width: `${(Math.abs(outValue) / max) * 100}%` }} /></span>
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -522,6 +603,21 @@ function ItemLedgerReport() {
       .filter(({ ins, outs }) => pickedIds || includeIdle || ins.length > 0 || outs.length > 0)
       .map(({ product, ins, outs }) => ({ product, ledger: ledgerFor(product, ins, outs) }))
   }, [isList, isMulti, selected, sortedProducts, stockIns, stockOuts, includeIdle, bounds, yearMode])
+  // headline values for the spotlight strip
+  const itemTotals = useMemo(() => {
+    const list = isList ? allLedgers ?? [] : singleLedger ? [{ ledger: singleLedger }] : []
+    if (!list.length) return null
+    return list.reduce(
+      (t, { ledger }) => ({
+        count: t.count + 1,
+        opening: t.opening + ledger.opening.value,
+        in: t.in + ledger.totalIn.value,
+        out: t.out + ledger.totalOut.value,
+        closing: t.closing + ledger.closing.value,
+      }),
+      { count: 0, opening: 0, in: 0, out: 0, closing: 0 },
+    )
+  }, [isList, allLedgers, singleLedger])
   const ledgerPage = usePagination(allLedgers ?? [], PAGE_SIZE, `${isList}-${includeIdle}-${isMulti ? selected.ids.join(',') : ''}`)
 
   // ticked product blocks (list modes only); reset whenever a different report is opened
@@ -561,6 +657,7 @@ function ItemLedgerReport() {
 
   function handleExportExcel() {
     if (!selected) return
+    emitFx('report-export', { kind: 'excel' })
     const blocks = exportBlocks()
     const aoa = [[`รายงานสินค้าและวัตถุดิบ${yearMode ? ` ${periodHeading(period)}` : rangeLabel(range)}`]]
     blocks.forEach(({ product, ledger }) => {
@@ -623,6 +720,7 @@ function ItemLedgerReport() {
     if (!selected || pdfProgress) return
     const blocks = isList && selCount === 0 ? ledgerPage.pageItems : exportBlocks()
     if (!blocks.length) return
+    emitFx('report-export', { kind: 'pdf' })
     setPdfProgress({ done: 0, total: 0 })
     try {
       await exportItemLedgerPdf({
@@ -680,6 +778,22 @@ function ItemLedgerReport() {
           }}
         />
       </div>
+
+      {selected && itemTotals && (
+        <SpotlightStrip
+          periodKey={`${JSON.stringify(period)}-${isList ? 'list' : selected?.id}`}
+          chip={periodName(period) || (period.mode === 'all' ? 'ทุกปี' : 'ช่วงวันที่')}
+          title={isList ? `ภาพรวม ${formatNumber(itemTotals.count)} สินค้า` : `${selected.code}`}
+          stats={[
+            { label: 'มูลค่ายอดยกมา', value: itemTotals.opening },
+            { label: 'มูลค่ารับเข้า', value: itemTotals.in },
+            { label: 'มูลค่าจ่ายออก', value: itemTotals.out },
+            { label: 'มูลค่าคงเหลือ', value: itemTotals.closing },
+          ]}
+          inValue={itemTotals.in}
+          outValue={itemTotals.out}
+        />
+      )}
 
       {products.length > 0 && (
         <div className="mb-3">
@@ -990,6 +1104,7 @@ function AllStockSummaryReport() {
   const fileBase = `all-stock-summary${yearMode ? `-${yearMode}` : ''}`
 
   function handleExportExcel() {
+    emitFx('report-export', { kind: 'excel' })
     const exportRows = selCount > 0 ? selectedRows : rows
     const t = selCount > 0 ? selectedTotals : totals
     const aoa = [
@@ -1005,6 +1120,7 @@ function AllStockSummaryReport() {
 
   function handleExportPdf() {
     if (pdfJob) return
+    emitFx('report-export', { kind: 'pdf' })
     if (selCount > 0) {
       setPdfJob({ filename: `${fileBase}-selected.pdf` })
       return
@@ -1021,6 +1137,19 @@ function AllStockSummaryReport() {
         <PeriodBar period={period} onChange={setPeriod} defaultRange={{ from: startOfYear(), to: todayDDMMYYYY() }} />
         <ExportButtons onPdf={handleExportPdf} onExcel={handleExportExcel} count={selCount} busy={!!pdfJob} periodName={periodName(period)} />
       </div>
+      <SpotlightStrip
+        periodKey={JSON.stringify(period)}
+        chip={periodName(period) || 'ช่วงวันที่'}
+        title={`สินค้า ${formatNumber(rows.length)} รายการ`}
+        stats={[
+          { label: openingLabelText, value: totals.openingValue },
+          { label: 'ซื้อ (มูลค่า)', value: totals.inValue },
+          { label: 'ออก (มูลค่า)', value: totals.outValue },
+          { label: 'คงเหลือ (มูลค่า)', value: totals.closingValue },
+        ]}
+        inValue={totals.inValue}
+        outValue={totals.outValue}
+      />
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         {rows.length > 0 && <ReportJumpSearch items={rows} onJump={jumper.jump} />}
         <SelectionInfo count={selCount} onClear={selection.clear} />

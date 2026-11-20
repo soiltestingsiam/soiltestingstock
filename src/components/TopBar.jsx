@@ -3,6 +3,7 @@ import { Settings, LogOut, UserCircle2, History } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import SealLogo from './SealLogo'
 import SettingsModal from './SettingsModal'
+import SoundToggle from './SoundToggle'
 import { useAuthStore, useCurrentUser, usePendingCount, useIsAdmin } from '../store/useAuthStore'
 
 export default function TopBar() {
@@ -61,6 +62,7 @@ export default function TopBar() {
               <History size={18} />
             </Link>
           )}
+          <SoundToggle className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)] sm:h-10 sm:w-10" />
           <button
             onClick={() => setSettingsOpen(true)}
             className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)] sm:h-10 sm:w-10"

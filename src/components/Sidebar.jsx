@@ -14,6 +14,7 @@ import {
   History,
 } from 'lucide-react'
 import SettingsModal from './SettingsModal'
+import SoundToggle from './SoundToggle'
 import SealLogo from './SealLogo'
 import { useAuthStore, useCurrentUser, usePendingCount, useIsAdmin } from '../store/useAuthStore'
 
@@ -111,6 +112,10 @@ export default function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                 {currentUser?.role === 'Admin' ? 'Admin' : 'Staff'}
               </div>
             </div>
+            <SoundToggle
+              size={15}
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
+            />
             <button
               onClick={() => setSettingsOpen(true)}
               className="relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
