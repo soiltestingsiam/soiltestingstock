@@ -11,6 +11,7 @@ import { buildItemLedger, buildAllStockSummary, groupByProduct, movementsForProd
 import { ddmmyyyyToSortable, todayDDMMYYYY, toThaiDate } from '../utils/date'
 import { formatMoney, formatNumber, thaiCompare } from '../utils/format'
 import { exportAoaToExcel, exportElementToPdf, exportElementsToPdf } from '../utils/export'
+import { currentBeYear, openingLabel, withoutLaterOpenings, yearLedger, yearRange, yearsWithData } from '../utils/yearView'
 
 const REPORT_OPTIONS = [
   {
@@ -75,8 +76,8 @@ export default function Reports() {
   )
 }
 
-function ExportButtons({ onPdf, onExcel, count = 0, busy = false, busyText = null }) {
-  const suffix = count > 0 ? ` (เลือก ${formatNumber(count)})` : ''
+function ExportButtons({ onPdf, onExcel, count = 0, busy = false, busyText = null, periodName = '' }) {
+  const suffix = `${periodName ? ` · ${periodName}` : ''}${count > 0 ? ` (เลือก ${formatNumber(count)})` : ''}`
   return (
     <div className="flex flex-wrap gap-2">
       <button
@@ -336,6 +337,96 @@ function useJumpTo(list, pagination, containerRef) {
   }
 }
 
+// ---------- which year (or dates) a report covers ----------
+// Like the CD program: pick a year and the report is that year's book, opening with one
+// "ยอดยกมาปี (ปีก่อน)" line. "ทุกปี" lists everything; "กำหนดช่วงวันที่เอง" is the old
+// free date range. period: { mode: 'year', year } | { mode: 'all' } | { mode: 'range', from, to }
+function periodRange(period) {
+  if (period.mode === 'year') return yearRange(period.year)
+  if (period.mode === 'range') return { from: period.from, to: period.to }
+  return { from: '', to: '' }
+}
+
+function periodName(period) {
+  return period.mode === 'year' ? `ปี ${period.year}` : ''
+}
+
+// what the PDF / Excel header says for the period
+function periodHeading(period) {
+  if (period.mode !== 'year') return null
+  const { from, to } = yearRange(period.year)
+  return `ปี ${period.year}  (${toThaiDate(from)} - ${toThaiDate(to)})`
+}
+
+function usePeriodYears() {
+  const stockIns = useStore((s) => s.stockIns)
+  const stockOuts = useStore((s) => s.stockOuts)
+  return useMemo(() => yearsWithData(stockIns, stockOuts), [stockIns, stockOuts])
+}
+
+function PeriodBar({ period, onChange, allowAll = false, defaultRange }) {
+  const years = usePeriodYears()
+  const chip = (active) =>
+    `rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+      active
+        ? 'border-blue-500 bg-blue-600 text-white'
+        : 'border-[var(--border-color)] bg-[var(--bg-surface-soft)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover-strong)]'
+    }`
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-2 text-[var(--text-muted)]">
+          <CalendarRange size={16} />
+          <span className="whitespace-nowrap text-xs">ปีที่แสดง</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="เลือกปีที่แสดงในรายงาน">
+          {years.map((y) => (
+            <button
+              key={y}
+              type="button"
+              aria-pressed={period.mode === 'year' && period.year === y}
+              onClick={() => onChange({ mode: 'year', year: y })}
+              className={chip(period.mode === 'year' && period.year === y)}
+            >
+              {y}
+            </button>
+          ))}
+          {allowAll && (
+            <button type="button" aria-pressed={period.mode === 'all'} onClick={() => onChange({ mode: 'all' })} className={chip(period.mode === 'all')}>
+              ทุกปี
+            </button>
+          )}
+          <button
+            type="button"
+            aria-pressed={period.mode === 'range'}
+            onClick={() => period.mode !== 'range' && onChange({ mode: 'range', ...defaultRange })}
+            className={chip(period.mode === 'range')}
+          >
+            กำหนดช่วงวันที่เอง
+          </button>
+        </div>
+      </div>
+      {period.mode === 'range' && (
+        <DateRangeBar
+          optional={allowAll}
+          from={period.from}
+          to={period.to}
+          onApply={(from, to) => onChange({ mode: 'range', from, to })}
+        />
+      )}
+      <p className="text-xs text-[var(--text-secondary)]">
+        {period.mode === 'year'
+          ? `แสดงเฉพาะรายการปี ${period.year} (${toThaiDate(yearRange(period.year).from)} - ${toThaiDate(yearRange(period.year).to)}) · ${openingLabel(period.year)} = ยอดคงเหลือ ณ สิ้นปี ${period.year - 1} · Export ได้ตามปีที่เลือก`
+          : period.mode === 'all'
+          ? 'แสดงทุกรายการตั้งแต่เริ่มต้น'
+          : period.from
+          ? `ยอดยกมา = ยอดคงเหลือจากรายการรับ-จ่ายก่อนวันที่ ${toThaiDate(period.from)}`
+          : 'ไม่ใส่วันที่ = แสดงทุกรายการ'}
+      </p>
+    </div>
+  )
+}
+
 // Date range inputs + "ค้นหาตามวันที่": the range only applies when the button is pressed
 // (or Enter), so half-typed dates don't reshuffle the report.
 // `optional`: blank dates are allowed and mean "from the beginning" / "up to now".
@@ -391,8 +482,10 @@ function ItemLedgerReport() {
   // "*" + Enter promises "every product record" (see the help text below), so ALL defaults
   // to including idle products too; the checkbox lets you narrow to movement-only after.
   const [includeIdle, setIncludeIdle] = useState(true)
-  // like the spec, the report lists every movement by default; a start date adds ยอดยกมา
-  const [range, setRange] = useState({ from: '', to: '' })
+  // one year at a time (like the CD program), this year first; ทุกปี / own dates available
+  const [period, setPeriod] = useState(() => ({ mode: 'year', year: currentBeYear() }))
+  const range = useMemo(() => periodRange(period), [period])
+  const yearMode = period.mode === 'year' ? period.year : null
   const printRef = useRef(null)
   const [pdfProgress, setPdfProgress] = useState(null) // null | { done, total } while exporting
 
@@ -409,10 +502,13 @@ function ItemLedgerReport() {
 
   const sortedProducts = useMemo(() => [...products].sort((a, b) => thaiCompare(a.code, b.code)), [products])
 
+  // a year's book: ยอดยกมา from the year before as one line, then that year's rows
+  const ledgerFor = (product, ins, outs) => (yearMode ? yearLedger(product, ins, outs, yearMode) : buildItemLedger(product, ins, outs, bounds))
+
   const singleLedger = useMemo(() => {
     if (!selected || isList) return null
-    return buildItemLedger(selected, filterForProduct(stockIns, selected), filterForProduct(stockOuts, selected), bounds)
-  }, [selected, isList, stockIns, stockOuts, bounds])
+    return ledgerFor(selected, filterForProduct(stockIns, selected), filterForProduct(stockOuts, selected))
+  }, [selected, isList, stockIns, stockOuts, bounds, yearMode])
 
   // With ~10k products, "ALL" defaults to products that actually have movements.
   // เลือกหลายรหัส shows exactly the picked products (idle or not).
@@ -424,8 +520,8 @@ function ItemLedgerReport() {
     return (pickedIds ? sortedProducts.filter((p) => pickedIds.has(p.id)) : sortedProducts)
       .map((p) => ({ product: p, ins: movementsForProduct(insByProduct, p), outs: movementsForProduct(outsByProduct, p) }))
       .filter(({ ins, outs }) => pickedIds || includeIdle || ins.length > 0 || outs.length > 0)
-      .map(({ product, ins, outs }) => ({ product, ledger: buildItemLedger(product, ins, outs, bounds) }))
-  }, [isList, isMulti, selected, sortedProducts, stockIns, stockOuts, includeIdle, bounds])
+      .map(({ product, ins, outs }) => ({ product, ledger: ledgerFor(product, ins, outs) }))
+  }, [isList, isMulti, selected, sortedProducts, stockIns, stockOuts, includeIdle, bounds, yearMode])
   const ledgerPage = usePagination(allLedgers ?? [], PAGE_SIZE, `${isList}-${includeIdle}-${isMulti ? selected.ids.join(',') : ''}`)
 
   // ticked product blocks (list modes only); reset whenever a different report is opened
@@ -456,7 +552,7 @@ function ItemLedgerReport() {
     if (product) setSelected(product)
   }
 
-  const exportBase = selected === 'ALL' ? 'item-ledger-all' : isMulti ? 'item-ledger-multi' : `item-ledger-${selected?.code}`
+  const exportBase = `${selected === 'ALL' ? 'item-ledger-all' : isMulti ? 'item-ledger-multi' : `item-ledger-${selected?.code}`}${yearMode ? `-${yearMode}` : ''}`
 
   function exportBlocks() {
     if (!isList) return [{ product: selected, ledger: singleLedger }]
@@ -466,7 +562,7 @@ function ItemLedgerReport() {
   function handleExportExcel() {
     if (!selected) return
     const blocks = exportBlocks()
-    const aoa = [[`รายงานสินค้าและวัตถุดิบ${rangeLabel(range)}`]]
+    const aoa = [[`รายงานสินค้าและวัตถุดิบ${yearMode ? ` ${periodHeading(period)}` : rangeLabel(range)}`]]
     blocks.forEach(({ product, ledger }) => {
       aoa.push([])
       aoa.push([`รหัสสินค้า: ${product.code}`, '', `ชื่อสินค้า: ${product.name}`])
@@ -531,7 +627,7 @@ function ItemLedgerReport() {
     try {
       await exportItemLedgerPdf({
         blocks,
-        range,
+        range: { ...range, label: periodHeading(period) },
         filename: `${exportBase}${isList && selCount > 0 ? '-selected' : ''}.pdf`,
         onProgress: (done, total) => setPdfProgress({ done, total }),
       })
@@ -567,26 +663,22 @@ function ItemLedgerReport() {
             count={selCount}
             busy={!!pdfProgress}
             busyText={pdfProgress?.total ? `กำลังสร้าง PDF ${pdfProgress.done}/${pdfProgress.total} หน้า` : null}
+            periodName={periodName(period)}
           />
         )}
       </div>
 
       <div className="mb-5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
-        <DateRangeBar
-          optional
-          from={range.from}
-          to={range.to}
-          onApply={(from, to) => {
-            setRange({ from, to })
-            // a date search needs a product to show: ask for one if none is picked yet
-            if (!selected) setPickerOpen(true)
+        <PeriodBar
+          allowAll
+          period={period}
+          defaultRange={{ from: '', to: '' }}
+          onChange={(next) => {
+            setPeriod(next)
+            // applying own dates needs a product to show: ask for one if none is picked yet
+            if (next.mode === 'range' && period.mode === 'range' && !selected) setPickerOpen(true)
           }}
         />
-        <p className="mt-2 text-xs text-[var(--text-faint)]">
-          {range.from
-            ? `ยอดยกมา = ยอดคงเหลือจากรายการรับ-จ่ายก่อนวันที่ ${toThaiDate(range.from)}`
-            : 'ไม่ใส่วันที่ = แสดงทุกรายการ'}
-        </p>
       </div>
 
       {products.length > 0 && (
@@ -849,13 +941,19 @@ function AllStockSummaryReport() {
   const printRef = useRef(null)
   const [pdfJob, setPdfJob] = useState(null)
 
-  const [range, setRange] = useState(() => ({ from: startOfYear(), to: todayDDMMYYYY() }))
+  // one year at a time, this year first (or own dates)
+  const [period, setPeriod] = useState(() => ({ mode: 'year', year: currentBeYear() }))
+  const range = useMemo(() => periodRange(period), [period])
+  const yearMode = period.mode === 'year' ? period.year : null
   const fromSortable = ddmmyyyyToSortable(range.from)
   const toSortable = ddmmyyyyToSortable(range.to)
 
   const rows = useMemo(() => {
     const sortedProducts = [...products].sort((a, b) => thaiCompare(a.code, b.code))
-    const all = buildAllStockSummary(sortedProducts, stockIns, stockOuts, fromSortable ?? undefined, toSortable ?? undefined)
+    // a year's book leaves out ยอดยกมา rows that open a LATER year
+    const ins = yearMode ? withoutLaterOpenings(stockIns, toSortable) : stockIns
+    const outs = yearMode ? withoutLaterOpenings(stockOuts, toSortable) : stockOuts
+    const all = buildAllStockSummary(sortedProducts, ins, outs, fromSortable ?? undefined, toSortable ?? undefined)
     // Hide products with zero movement in the period (ยอดยกมา, ซื้อ, ออก, คงเหลือ all zero).
     return all.filter(
       (r) =>
@@ -868,9 +966,9 @@ function AllStockSummaryReport() {
         r.closing.qty !== 0 ||
         r.closing.value !== 0,
     )
-  }, [products, stockIns, stockOuts, fromSortable, toSortable])
+  }, [products, stockIns, stockOuts, fromSortable, toSortable, yearMode])
 
-  const summaryPage = usePagination(rows, PAGE_SIZE, `${fromSortable}-${toSortable}`)
+  const summaryPage = usePagination(rows, PAGE_SIZE, `${fromSortable}-${toSortable}-${yearMode}`)
   const jumper = useJumpTo(rows, summaryPage, printRef)
 
   const totals = useMemo(() => sumSummaryTotals(rows), [rows])
@@ -883,28 +981,35 @@ function AllStockSummaryReport() {
 
   const fromThai = toThaiDate(range.from)
   const toThai = toThaiDate(range.to)
+  // year mode: "ปี 2569 (01/01/2569 - 31/12/2569)" and "ยอดยกมาปี 2568"; own dates: as before
+  // (the sheet gets the same text pieces as before, so own-date PDFs come out identical)
+  const periodLabel = yearMode ? periodHeading(period) : `สิ้นสุดวันที่ ${fromThai} - ${toThai}`
+  const openingLabelText = yearMode ? openingLabel(yearMode) : `ยอดยกมา - ${fromThai}`
+  const periodText = yearMode ? periodLabel : <>สิ้นสุดวันที่ {fromThai} - {toThai}</>
+  const openingText = yearMode ? openingLabelText : <>ยอดยกมา - {fromThai}</>
+  const fileBase = `all-stock-summary${yearMode ? `-${yearMode}` : ''}`
 
   function handleExportExcel() {
     const exportRows = selCount > 0 ? selectedRows : rows
     const t = selCount > 0 ? selectedTotals : totals
     const aoa = [
       ['สรุปยอดสินค้าคงเหลือ รวมทุกคลัง'],
-      [`สิ้นสุดวันที่ ${fromThai} - ${toThai}`],
+      [periodLabel],
       [],
-      ['รหัส', 'ชื่อสินค้า', `ยอดยกมา - ${fromThai} จำนวน`, `ยอดยกมา - ${fromThai} เป็นเงิน`, 'ซื้อ-จำนวน', 'ซื้อ-เป็นเงิน', 'ออก-จำนวน', 'ออก-เป็นเงิน', 'คงเหลือ-จำนวน', 'คงเหลือ-เป็นเงิน'],
+      ['รหัส', 'ชื่อสินค้า', `${openingLabelText} จำนวน`, `${openingLabelText} เป็นเงิน`, 'ซื้อ-จำนวน', 'ซื้อ-เป็นเงิน', 'ออก-จำนวน', 'ออก-เป็นเงิน', 'คงเหลือ-จำนวน', 'คงเหลือ-เป็นเงิน'],
       ...exportRows.map((r) => [r.code, r.name, r.opening.qty, r.opening.value, r.in.qty, r.in.value, r.out.qty, r.out.value, r.closing.qty, r.closing.value]),
       ['', 'รวมเงิน', '', round2(t.openingValue), '', round2(t.inValue), '', round2(t.outValue), '', round2(t.closingValue)],
     ]
-    exportAoaToExcel(aoa, selCount > 0 ? 'all-stock-summary-selected.xlsx' : 'all-stock-summary.xlsx', 'Summary')
+    exportAoaToExcel(aoa, `${fileBase}${selCount > 0 ? '-selected' : ''}.xlsx`, 'Summary')
   }
 
   function handleExportPdf() {
     if (pdfJob) return
     if (selCount > 0) {
-      setPdfJob({ filename: 'all-stock-summary-selected.pdf' })
+      setPdfJob({ filename: `${fileBase}-selected.pdf` })
       return
     }
-    exportElementToPdf(printRef.current, `all-stock-summary.pdf`)
+    exportElementToPdf(printRef.current, `${fileBase}.pdf`)
   }
 
   const allChecked = rows.length > 0 && selCount === rows.length
@@ -913,8 +1018,8 @@ function AllStockSummaryReport() {
   return (
     <div className="mx-auto max-w-[1123px]">
       <div className="mb-5 flex flex-col gap-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 lg:flex-row lg:items-start lg:justify-between">
-        <DateRangeBar from={range.from} to={range.to} onApply={(from, to) => setRange({ from, to })} />
-        <ExportButtons onPdf={handleExportPdf} onExcel={handleExportExcel} count={selCount} busy={!!pdfJob} />
+        <PeriodBar period={period} onChange={setPeriod} defaultRange={{ from: startOfYear(), to: todayDDMMYYYY() }} />
+        <ExportButtons onPdf={handleExportPdf} onExcel={handleExportExcel} count={selCount} busy={!!pdfJob} periodName={periodName(period)} />
       </div>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         {rows.length > 0 && <ReportJumpSearch items={rows} onJump={jumper.jump} />}
@@ -927,8 +1032,8 @@ function AllStockSummaryReport() {
         <SummarySheet
           rows={summaryPage.pageItems}
           totals={totals}
-          fromThai={fromThai}
-          toThai={toThai}
+          periodText={periodText}
+          openingText={openingText}
           empty={rows.length === 0}
           highlightId={jumper.highlightId}
           select={{
@@ -957,8 +1062,8 @@ function AllStockSummaryReport() {
               rows={part}
               totals={selectedTotals}
               showTotals={i === pdfChunks.length - 1}
-              fromThai={fromThai}
-              toThai={toThai}
+              periodText={periodText}
+              openingText={openingText}
             />
           </div>
         ))}
@@ -969,13 +1074,11 @@ function AllStockSummaryReport() {
 
 // One A4-landscape sheet of the All-Stock Summary. `select` (on-screen only) adds the
 // checkbox column, which is marked data-pdf-hide so it never reaches the PDF.
-function SummarySheet({ rows, totals, fromThai, toThai, empty = false, showTotals = true, select = null, highlightId = null }) {
+function SummarySheet({ rows, totals, periodText, openingText, empty = false, showTotals = true, select = null, highlightId = null }) {
   return (
     <div className="report-a4-page min-h-[794px] rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
       <div className="text-center text-lg font-bold text-[var(--text-primary)]">สรุปยอดสินค้าคงเหลือ รวมทุกคลัง</div>
-      <div className="mb-4 text-center text-sm text-[var(--text-secondary)]">
-        สิ้นสุดวันที่ {fromThai} - {toThai}
-      </div>
+      <div className="mb-4 text-center text-sm text-[var(--text-secondary)]">{periodText}</div>
       <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
         <table className="w-full min-w-[980px] text-xs [&_th]:whitespace-nowrap">
           <thead>
@@ -992,7 +1095,7 @@ function SummarySheet({ rows, totals, fromThai, toThai, empty = false, showTotal
               )}
               <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-left align-bottom">รหัส</th>
               <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-left align-bottom">ชื่อสินค้า</th>
-              <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-red-400">ยอดยกมา - {fromThai}</th>
+              <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-red-400">{openingText}</th>
               <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-emerald-300">ซื้อ</th>
               <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-sky-300">ออก</th>
               <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-red-400">คงเหลือ</th>

@@ -16,6 +16,7 @@ export default function Modal({ open, onClose, title, children, wide }) {
           <h2 className="truncate text-lg font-semibold text-[var(--text-primary)]">{title}</h2>
           <button
             onClick={onClose}
+            aria-label="ปิด"
             className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--text-muted)] transition hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]"
           >
             <X size={18} />
