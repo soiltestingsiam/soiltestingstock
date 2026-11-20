@@ -410,7 +410,8 @@ export async function exportItemLedgerPdf({ blocks, range, filename, onProgress 
   const meta = {
     codeFrom: blocks[0].product.code,
     codeTo: blocks[blocks.length - 1].product.code,
-    rangeText: rangeText(range ?? {}),
+    // a chosen year prints as "ปี 2569  (01/01/2569 - 31/12/2569)"; own dates as before
+    rangeText: range?.label || rangeText(range ?? {}),
     productCount: blocks.length,
     printedOn: toThaiDate(todayDDMMYYYY()),
   }

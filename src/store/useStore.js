@@ -146,6 +146,45 @@ const loadProducts = () => fetchAll('products', ['id'])
 const loadMovements = () => fetchAll('stock_movements', ['created_at', 'id'])
 const loadBatches = () => fetchAll('import_batches', ['imported_at', 'id'])
 
+// Realtime sends one event per changed row, so a bulk change (an import, closing a year)
+// would otherwise re-download everything thousands of times on every open screen. This
+// waits for a quiet moment (and at most `maxWait`), never runs two loads at once, and runs
+// once more if changes arrived during a load.
+function coalesced(fn, wait = 700, maxWait = 4000) {
+  let timer = null
+  let first = 0
+  let running = false
+  let again = false
+  const run = async () => {
+    timer = null
+    first = 0
+    if (running) {
+      again = true
+      return
+    }
+    running = true
+    try {
+      await fn()
+    } finally {
+      running = false
+      if (again) {
+        again = false
+        schedule()
+      }
+    }
+  }
+  function schedule() {
+    const now = Date.now()
+    if (!first) first = now
+    clearTimeout(timer)
+    timer = setTimeout(run, Math.max(0, Math.min(wait, first + maxWait - now)))
+  }
+  return schedule
+}
+
+// PostgREST "function not found" (an optional migration isn't installed yet)
+const isMissingFunction = (e) => e?.code === 'PGRST202' || /could not find the function/i.test(e?.message || '')
+
 function sortProducts(products) {
   return [...products].sort((a, b) => thaiCompare(a.code, b.code))
 }
@@ -210,11 +249,14 @@ export const useStore = create((set, get) => ({
 
   subscribeRealtime: () => {
     if (!isSupabaseConfigured || get()._subscribed) return
+    const products = coalesced(() => get().refetchProducts())
+    const movements = coalesced(() => get().refetchMovements())
+    const batches = coalesced(() => get().refetchBatches())
     const channel = supabase
       .channel('sts-stock-db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => get().refetchProducts())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, () => get().refetchMovements())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'import_batches' }, () => get().refetchBatches())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, products)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, movements)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'import_batches' }, batches)
       .subscribe()
     set({ _subscribed: true, _channel: channel })
   },
@@ -466,6 +508,47 @@ export const useStore = create((set, get) => ({
     }
 
     await Promise.all([get().refetchProducts(), get().refetchMovements(), get().refetchBatches()])
+  },
+
+  // ---------- per-year data (Settings → ข้อมูลรายปี) ----------
+
+  // Close every year up to `throughBe` (พ.ศ.): carry what is left as ยอดยกมา of the next
+  // year and delete the old rows, all in one database transaction (migration 007).
+  // `carryRows` come from utils/yearView.carryForward. Returns { data } | { error, missing }.
+  closeYears: async (throughBe, carryRows) => {
+    const { data, error } = await supabase.rpc('close_years', {
+      p_through: `${throughBe - 543}-12-31`,
+      p_carry: carryRows,
+      p_label: `ยกยอดอัตโนมัติ — ปิดปี ${throughBe}`,
+    })
+    if (error) return { error, missing: isMissingFunction(error) }
+    await Promise.all([get().refetchMovements(), get().refetchBatches()])
+    return { data }
+  },
+
+  // Delete chosen kinds of rows dated in one year (พ.ศ.) — for data entered / imported by
+  // mistake. kinds: any of 'in' | 'out' | 'opening'. Balances change accordingly.
+  deleteYearMovements: async (be, kinds) => {
+    const from = `${be - 543}-01-01`
+    const to = `${be - 543}-12-31`
+    let deleted = 0
+    for (const kind of kinds) {
+      let q = supabase.from('stock_movements').delete({ count: 'exact' }).gte('movement_date', from).lte('movement_date', to)
+      q = kind === 'opening' ? q.eq('is_opening_balance', true) : q.eq('is_opening_balance', false).eq('direction', kind)
+      const { error, count } = await q
+      if (error) {
+        await get().refetchMovements()
+        return { error, deleted }
+      }
+      deleted += count ?? 0
+    }
+    await get().refetchMovements()
+    // import-history entries that no longer have any rows (so that year can be imported again)
+    const used = new Set([...get().stockIns, ...get().stockOuts].map((m) => m.importBatchId).filter(Boolean))
+    const empty = get().importBatches.filter((b) => !used.has(b.id)).map((b) => b.id)
+    if (empty.length) await supabase.from('import_batches').delete().in('id', empty)
+    await get().refetchBatches()
+    return { deleted }
   },
 
   hasImportedYear: (type, year) => get().importBatches.some((b) => b.type === type && b.year === year),
