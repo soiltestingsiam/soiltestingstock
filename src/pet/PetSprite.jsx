@@ -74,6 +74,40 @@ function HeadItem({ id, u }) {
           <circle cx="136" cy="50" r="4.8" fill="#ffd24d" />
         </g>
       )
+    case 'jasmine':
+      // a sprig of jasmine (ดอกมะลิ) tucked behind the ear — วันแม่
+      return (
+        <g className="pet-sway" style={{ transformOrigin: '134px 52px' }}>
+          <path d="M120 60 Q114 50 120 42 Q126 50 120 60 Z" fill="#3fae5a" />
+          {[
+            [134, 46, 1],
+            [146, 40, 0.8],
+            [128, 34, 0.75],
+          ].map(([cx, cy, k]) => (
+            <g key={cx} transform={`translate(${cx} ${cy}) scale(${k})`}>
+              {[0, 72, 144, 216, 288].map((a) => (
+                <ellipse key={a} cx="0" cy="-7" rx="4.6" ry="8" fill="#ffffff" stroke="#dbe7f3" strokeWidth=".8" transform={`rotate(${a})`} />
+              ))}
+              <circle r="2.8" fill="#fde68a" />
+            </g>
+          ))}
+          <ellipse cx="142" cy="54" rx="2.6" ry="5" fill="#f5fbff" stroke="#dbe7f3" strokeWidth=".8" transform="rotate(30 142 54)" />
+        </g>
+      )
+    case 'canna':
+      // a yellow canna (ดอกพุทธรักษา) behind the ear — วันพ่อ
+      return (
+        <g className="pet-sway" style={{ transformOrigin: '136px 52px' }}>
+          <path d="M120 62 Q110 50 117 38 Q127 50 120 62 Z" fill="#3a9a4f" />
+          {[-38, 0, 38].map((a) => (
+            <path key={a} d="M136 50 C126 40 126 24 136 18 C146 24 146 40 136 50 Z" fill="#facc15" stroke="#eab308" strokeWidth="1" transform={`rotate(${a} 136 50)`} />
+          ))}
+          <path d="M136 50 C131 42 131 32 136 28 C141 32 141 42 136 50 Z" fill="#fde047" />
+          {[[133, 36], [139, 39], [135, 43]].map(([x, y]) => (
+            <circle key={x} cx={x} cy={y} r="1.1" fill="#ea580c" />
+          ))}
+        </g>
+      )
     case 'witch':
       return (
         <g>
@@ -216,6 +250,33 @@ function NeckItem({ id, u }) {
         </g>
       )
     }
+    case 'maalai': {
+      // jasmine garland (พวงมาลัย) with a soft-blue ribbon — วันแม่
+      const P0 = [62, 131], P1 = [100, 164], P2 = [138, 131]
+      return (
+        <g>
+          <path d="M62 131 Q100 164 138 131" stroke="#9cc9f0" strokeWidth="2" fill="none" />
+          {Array.from({ length: 15 }, (_, i) => {
+            const [x, y] = qpt(P0, P1, P2, i / 14)
+            return <circle key={i} cx={x} cy={y} r="3.6" fill="#ffffff" stroke="#d6e4f2" strokeWidth=".8" />
+          })}
+          <circle cx="100" cy="150" r="7" fill="#ffffff" stroke="#d6e4f2" />
+          <circle cx="100" cy="150" r="3" fill="#7cb9f2" />
+          <path d="M100 156 L93 172 L99 169 Z M100 156 L107 172 L101 169 Z" fill="#7cb9f2" />
+        </g>
+      )
+    }
+    case 'yellow-scarf':
+      return (
+        <g>
+          <path d={COLLAR} stroke="#facc15" strokeWidth="12" fill="none" strokeLinecap="round" />
+          <path d={COLLAR} stroke="#fff7cc" strokeWidth="12" fill="none" strokeDasharray="2 10" opacity=".8" />
+          <g transform="rotate(10 120 144)">
+            <rect x="113" y="140" width="15" height="28" rx="4" fill="#facc15" />
+            <path d="M113 162 H128" stroke="#ca8a04" strokeWidth="2.5" />
+          </g>
+        </g>
+      )
     case 'pumpkin':
       return (
         <g>
@@ -354,6 +415,7 @@ export default function PetSprite({
   pose = 'walk',
   layer = 'all',
   happy = false,
+  sleepy = false,
   walking = false,
   className = '',
   style,
@@ -600,7 +662,13 @@ export default function PetSprite({
     <ellipse cx="100" cy="117" rx="27" ry="19" fill={c.belly} />
   )
 
-  const eyes = happy ? (
+  const eyes = sleepy && !happy ? (
+    // dozing: soft closed lids curving down
+    <g stroke={darkFur ? '#efe8f3' : INK} strokeWidth="3.4" fill="none" strokeLinecap="round">
+      <path d={`M${L[0] - 11} ${L[1] - 1} Q${L[0]} ${L[1] + 8} ${L[0] + 11} ${L[1] - 1}`} />
+      <path d={`M${R[0] - 11} ${R[1] - 1} Q${R[0]} ${R[1] + 8} ${R[0] + 11} ${R[1] - 1}`} />
+    </g>
+  ) : happy ? (
     <g stroke={INK} strokeWidth="3.8" fill="none" strokeLinecap="round">
       <path d={`M${L[0] - 11} ${L[1] + 3} Q${L[0]} ${L[1] - 10} ${L[0] + 11} ${L[1] + 3}`} />
       <path d={`M${R[0] - 11} ${R[1] + 3} Q${R[0]} ${R[1] - 10} ${R[0] + 11} ${R[1] + 3}`} />

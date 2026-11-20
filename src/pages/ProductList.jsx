@@ -5,6 +5,7 @@ import Modal from '../components/Modal'
 import ProductQrModal from '../components/ProductQrModal'
 import DuplicateCodeModal from '../components/DuplicateCodeModal'
 import Pagination, { usePagination } from '../components/Pagination'
+import EmptyState from '../components/EmptyState'
 import MoneyInput from '../components/MoneyInput'
 import FormField, { inputClass } from '../components/FormField'
 import { useStore } from '../store/useStore'
@@ -268,8 +269,8 @@ export default function ProductList() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-[var(--text-faint)]">
-                  ไม่พบสินค้า
+                <td colSpan={6} className="px-4 py-6">
+                  <EmptyState title="ไม่พบสินค้า" hint={query.trim() ? 'ลองค้นหาด้วยรหัสหรือชื่ออื่นดูนะ' : 'เริ่มต้นได้ด้วยการเพิ่มสินค้า หรือนำเข้าจากไฟล์ Excel'} />
                 </td>
               </tr>
             )}

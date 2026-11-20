@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
-import { resolveFestival } from '../festival/festivals'
+import { resolveFestival, parseAnniversary } from '../festival/festivals'
 
 // Festival theme state.
 //  - mode: WHICH festival. Chosen by the admin and stored globally in app_settings
@@ -20,10 +20,23 @@ import { resolveFestival } from '../festival/festivals'
 //    runs with the user's token;
 //  - a read that started before a newer local/realtime change is ignored (`seq`), so a
 //    slow start-up read can never undo a choice made a moment later.
+//
+// The company's founding date (for the "ครบรอบบริษัท" theme in auto mode) is a second key in
+// the same table, set by an admin; cached on the device so the login page knows it too.
 
 const LS_MODE = 'sts-festival-mode'
 const LS_ENABLED = 'sts-festival-enabled'
 const SETTING_KEY = 'festival_mode'
+const ANNIV_KEY = 'company_anniversary'
+const LS_ANNIV = 'sts-company-anniversary'
+
+function readLocalAnniv() {
+  try {
+    return localStorage.getItem(LS_ANNIV) || ''
+  } catch {
+    return ''
+  }
+}
 
 function readLocalMode() {
   try {
@@ -41,8 +54,8 @@ function readEnabled() {
   }
 }
 
-function applyAttr(mode, enabled) {
-  const active = enabled ? resolveFestival(mode) : 'none'
+function applyAttr(mode, enabled, anniv = readLocalAnniv()) {
+  const active = enabled ? resolveFestival(mode, new Date(), parseAnniversary(anniv)) : 'none'
   try {
     document.documentElement.setAttribute('data-festival', active)
   } catch {
@@ -70,6 +83,17 @@ async function fetchMode() {
   return null
 }
 
+// the founding date ('' when unset, null when it can't be read)
+async function fetchAnniversary() {
+  try {
+    const { data, error } = await supabase.from('app_settings').select('key, value').eq('key', ANNIV_KEY).maybeSingle()
+    if (error) return null
+    return data?.key === ANNIV_KEY && parseAnniversary(data.value) ? data.value : ''
+  } catch {
+    return null
+  }
+}
+
 // Postgres / PostgREST "the table isn't there" (migration 005 not installed)
 const isMissingTable = (e) => ['42P01', 'PGRST205', 'PGRST204'].includes(e?.code) || /does not exist|schema cache/i.test(e?.message || '')
 
@@ -82,6 +106,7 @@ export const useFestivalStore = create((set, get) => ({
   active: applyAttr(readLocalMode(), readEnabled()), // what is actually shown
   loaded: false,
   welcomeNonce: 0, // bumped on each fresh login → the welcome popup reads it
+  anniversary: readLocalAnniv(), // 'YYYY-MM-DD' | 'MM-DD' | ''
 
   // Fired right after a successful login so the welcome popup shows the active festival.
   announce: () => set((s) => ({ welcomeNonce: s.welcomeNonce + 1 })),
@@ -98,11 +123,23 @@ export const useFestivalStore = create((set, get) => ({
 
   refresh: () => set({ active: applyAttr(get().mode, get().enabled) }),
 
-  // pull the admin's current choice from the database
+  _setAnniv: (value) => {
+    const v = parseAnniversary(value) ? value : ''
+    try {
+      if (v) localStorage.setItem(LS_ANNIV, v)
+      else localStorage.removeItem(LS_ANNIV)
+    } catch {
+      /* ignore */
+    }
+    set({ anniversary: v, active: applyAttr(get().mode, get().enabled, v) })
+  },
+
+  // pull the admin's current choice (and the founding date) from the database
   sync: async () => {
     if (!isSupabaseConfigured) return
     const started = seq
-    const v = await fetchMode()
+    const [v, anniv] = await Promise.all([fetchMode(), fetchAnniversary()])
+    if (anniv != null && anniv !== get().anniversary) get()._setAnniv(anniv)
     if (v && started === seq && v !== get().mode) get()._reapply(v)
   },
 
@@ -136,9 +173,12 @@ export const useFestivalStore = create((set, get) => ({
     }
     channel = supabase
       .channel('sts-app-settings')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings', filter: `key=eq.${SETTING_KEY}` }, (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings', filter: `key=in.(${SETTING_KEY},${ANNIV_KEY})` }, (payload) => {
+        const key = payload.new?.key
         const v = payload.new?.value
-        if (v) {
+        if (key === ANNIV_KEY) {
+          get()._setAnniv(v || '')
+        } else if (v) {
           seq += 1
           get()._reapply(v)
         }
@@ -165,6 +205,23 @@ export const useFestivalStore = create((set, get) => ({
     seq += 1
     const real = await fetchMode()
     get()._reapply(real || prev)
+    return { ok: false, error }
+  },
+
+  // admin only: the company's founding date ('YYYY-MM-DD' / 'MM-DD', '' to clear).
+  // Returns { ok } or { ok:false, error, localOnly } like setMode.
+  setAnniversary: async (value) => {
+    const v = parseAnniversary(value) ? value : ''
+    const prev = get().anniversary
+    get()._setAnniv(v)
+    if (!isSupabaseConfigured) return { ok: true }
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert({ key: ANNIV_KEY, value: v || null, updated_at: new Date().toISOString() })
+    if (!error) return { ok: true }
+    if (isMissingTable(error)) return { ok: false, error, localOnly: true }
+    const real = await fetchAnniversary()
+    get()._setAnniv(real ?? prev)
     return { ok: false, error }
   },
 

@@ -96,6 +96,39 @@ const LOGIN_THEMES = {
     card: 'linear-gradient(160deg, rgba(74,16,16,.78), rgba(40,10,10,.78))',
     shine: 'linear-gradient(100deg, #fff4d6 0%, #fcd34d 30%, #fca5a5 52%, #fde68a 74%, #ffffff 100%)',
   },
+  mothersday: {
+    // soft sky blue + jasmine white
+    bg: 'radial-gradient(130% 120% at 15% 0%, #1f4f8f 0%, #173d73 38%, #102c55 70%, #0a1d3a 100%)',
+    blobs: ['#60a5fa', '#bae6fd', '#93c5fd'],
+    grid: 'rgba(200,230,255,.4)',
+    accent: '#dbeafe',
+    btnFrom: '#3b82f6', btnTo: '#0ea5e9',
+    glow: ['#93c5fd', '#e0f2fe', '#60a5fa', '#ffffff'],
+    card: 'linear-gradient(160deg, rgba(28,66,120,.74), rgba(14,36,72,.76))',
+    shine: 'linear-gradient(100deg, #ffffff 0%, #dbeafe 28%, #bae6fd 50%, #ffffff 74%, #e0f2fe 100%)',
+  },
+  fathersday: {
+    // warm royal yellow + canna gold
+    bg: 'radial-gradient(130% 120% at 15% 0%, #5a4208 0%, #443006 38%, #2f2105 70%, #1d1403 100%)',
+    blobs: ['#facc15', '#f59e0b', '#fde047'],
+    grid: 'rgba(255,230,140,.36)',
+    accent: '#fde68a',
+    btnFrom: '#eab308', btnTo: '#d97706',
+    glow: ['#facc15', '#f59e0b', '#fde047', '#fff7cc'],
+    card: 'linear-gradient(160deg, rgba(80,58,10,.76), rgba(42,30,6,.78))',
+    shine: 'linear-gradient(100deg, #fffbea 0%, #fde047 30%, #fbbf24 52%, #fef08a 74%, #ffffff 100%)',
+  },
+  anniversary: {
+    // company blue + celebration gold
+    bg: 'radial-gradient(130% 120% at 15% 0%, #16357a 0%, #10285e 38%, #0b1c44 70%, #07122c 100%)',
+    blobs: ['#fbbf24', '#3b82f6', '#ec4899'],
+    grid: 'rgba(255,220,140,.34)',
+    accent: '#fde68a',
+    btnFrom: '#2563eb', btnTo: '#d97706',
+    glow: ['#fbbf24', '#3b82f6', '#f472b6', '#fde68a'],
+    card: 'linear-gradient(160deg, rgba(24,52,116,.74), rgba(10,26,64,.76))',
+    shine: 'linear-gradient(100deg, #fffbe6 0%, #fde68a 28%, #93c5fd 50%, #fcd34d 74%, #ffffff 100%)',
+  },
   valentine: {
     bg: 'radial-gradient(130% 120% at 15% 0%, #4a1030 0%, #380c26 38%, #28081c 70%, #1a0613 100%)',
     blobs: ['#ec4899', '#f472b6', '#db2777'],
@@ -156,6 +189,9 @@ const LOGIN_RING = {
   chinesenewyear: ['rgba(245,158,11,.75)', 'rgba(245,158,11,.28)'],
   valentine: ['rgba(236,72,153,.7)', 'rgba(236,72,153,.25)'],
   songkran: ['rgba(14,165,233,.7)', 'rgba(14,165,233,.25)'],
+  mothersday: ['rgba(96,165,250,.7)', 'rgba(96,165,250,.25)'],
+  fathersday: ['rgba(234,179,8,.75)', 'rgba(234,179,8,.28)'],
+  anniversary: ['rgba(251,191,36,.7)', 'rgba(251,191,36,.25)'],
 }
 
 const loginInput = (extra = '') =>

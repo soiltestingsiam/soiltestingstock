@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { useFestivalStore } from '../store/useFestivalStore'
-import { FESTIVALS } from '../festival/festivals'
+import { FESTIVALS, festivalGreeting, parseAnniversary } from '../festival/festivals'
 
 // A short celebratory popup shown once right after a fresh login, announcing which
 // festival is currently active (💖 วาเลนไทน์, 🏮 ตรุษจีน, 🎄 คริสต์มาส, ...).
@@ -22,6 +22,9 @@ const ACCENT = {
   chinesenewyear: { from: '#ffd24d', to: '#ff3b1e', glow: 'rgba(255,90,40,.55)' },
   valentine: { from: '#ff9fc3', to: '#ff2d6f', glow: 'rgba(255,90,140,.55)' },
   songkran: { from: '#8af0ff', to: '#1b9fd6', glow: 'rgba(60,200,245,.5)' },
+  mothersday: { from: '#bfe3ff', to: '#3b82f6', glow: 'rgba(120,180,255,.5)' },
+  fathersday: { from: '#ffe066', to: '#f59e0b', glow: 'rgba(250,204,21,.55)' },
+  anniversary: { from: '#ffd27f', to: '#2563eb', glow: 'rgba(255,200,90,.5)' },
 }
 
 export default function FestivalWelcome() {
@@ -36,7 +39,8 @@ export default function FestivalWelcome() {
     const start = setTimeout(() => {
       const active = useFestivalStore.getState().active
       if (!active || active === 'none') return
-      setFes(FESTIVALS[active] || null)
+      const f = FESTIVALS[active]
+      setFes(f ? { ...f, greeting: festivalGreeting(active, parseAnniversary(useFestivalStore.getState().anniversary)) } : null)
       setLeaving(false)
       close = setTimeout(() => setLeaving(true), WELCOME_MS)
       done = setTimeout(() => setFes(null), WELCOME_MS + 320)

@@ -1,5 +1,6 @@
 import TopBar from '../components/TopBar'
 import NavCard from '../components/NavCard'
+import TodaySummary from '../components/TodaySummary'
 import {
   WarehouseIllustration,
   TruckIllustration,
@@ -30,6 +31,7 @@ export default function Dashboard() {
             </div>
             <p className="mt-3 text-sm text-[var(--text-muted)]">STS · SOIL TESTING SIAM — เลือกเมนูด้านล่างเพื่อเริ่มต้นใช้งาน</p>
           </div>
+          <TodaySummary />
           <div className="stagger grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
           <NavCard
             to="/stock-in"

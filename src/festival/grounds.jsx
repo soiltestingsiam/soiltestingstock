@@ -3,7 +3,9 @@
 // % so it adapts to any width. `subtle` (login page) renders a lighter version.
 // Click effects for each scene live in BURSTS (handled by FestivalLayer).
 
-import { rand, wave, KrathongSVG, Fireflies } from './parts'
+import { rand, wave, KrathongSVG, Fireflies, Balloon } from './parts'
+import { useFestivalStore } from '../store/useFestivalStore'
+import { parseAnniversary, anniversaryYears } from './festivals'
 
 // place a piece by its horizontal centre (% of the width), standing `b` px above the bottom
 function At({ x, b = 0, w, h, className = '', style, children }) {
@@ -742,6 +744,273 @@ function SongkranGround({ subtle }) {
   )
 }
 
+/* ============================ วันแม่ — jasmine garden ============================ */
+
+function JasmineBush({ seed = 0 }) {
+  const flowers = Array.from({ length: 9 }, (_, i) => [18 + rand(seed + i * 3) * 84, 18 + rand(seed + i * 3 + 1) * 34])
+  return (
+    <svg viewBox="0 0 120 74" width="100%" aria-hidden="true">
+      {[[30, 46, 24], [58, 36, 28], [88, 44, 25], [46, 54, 22], [74, 54, 22]].map(([cx, cy, r], i) => (
+        <circle key={i} cx={cx} cy={cy} r={r} fill={i % 2 ? '#2f7a55' : '#286b4a'} />
+      ))}
+      {flowers.map(([x, y], i) => (
+        <g key={i} className="fes-twinkle-soft" style={{ animationDelay: `${(i % 5) * 0.45}s` }} transform={`translate(${x - 6} ${y - 6})`}>
+          <svg width="12" height="12" viewBox="0 0 26 26">
+            {[0, 72, 144, 216, 288].map((a) => (
+              <ellipse key={a} cx="13" cy="6.6" rx="3.8" ry="6.2" fill="#ffffff" transform={`rotate(${a} 13 13)`} />
+            ))}
+            <circle cx="13" cy="13" r="2.6" fill="#fde68a" />
+          </svg>
+        </g>
+      ))}
+    </svg>
+  )
+}
+
+// a heart woven from jasmine with a blue ribbon
+function JasmineHeart() {
+  const pts = Array.from({ length: 32 }, (_, i) => {
+    const t = (i / 32) * Math.PI * 2
+    const x = 16 * Math.sin(t) ** 3
+    const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t))
+    return [70 + x * 3.4, 56 + y * 3.4]
+  })
+  return (
+    <svg viewBox="0 0 140 120" width="100%" aria-hidden="true">
+      <path d="M70 116 V96" stroke="#6b4426" strokeWidth="4" />
+      {/* leafy wreath under the flowers */}
+      <path d={`M${pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L')} Z`} stroke="#2f7a55" strokeWidth="11" strokeLinejoin="round" fill="none" />
+      {pts.map(([x, y], i) =>
+        i % 2 ? (
+          <ellipse key={`l${i}`} cx={x} cy={y} rx="5" ry="2.6" fill="#4aa36f" transform={`rotate(${i * 23} ${x} ${y})`} />
+        ) : null,
+      )}
+      {pts.map(([x, y], i) => (
+        <g key={i} className="fes-twinkle-soft" style={{ animationDelay: `${(i % 6) * 0.35}s` }}>
+          <circle cx={x} cy={y} r={i % 2 ? 4.2 : 5.6} fill="#ffffff" stroke="#cfe0f0" strokeWidth=".8" />
+          <circle cx={x} cy={y} r="1.8" fill="#fde68a" />
+        </g>
+      ))}
+      <path d="M70 95 L58 112 L66 109 Z M70 95 L82 112 L74 109 Z" fill="#7cb9f2" />
+      <circle cx="70" cy="94" r="5" fill="#5aa5ee" />
+    </svg>
+  )
+}
+
+// mother cat and her kitten, side by side
+function MomAndKitten() {
+  return (
+    <svg viewBox="0 0 120 92" width="100%" aria-hidden="true">
+      <g className="fes-bob-slow">
+        <path d="M62 82 Q88 84 92 70" stroke="#d5dde8" strokeWidth="7" fill="none" strokeLinecap="round" />
+        <ellipse cx="40" cy="64" rx="24" ry="25" fill="#e9eef5" stroke="#b9c6d6" strokeWidth="1.2" />
+        <ellipse cx="40" cy="70" rx="13" ry="15" fill="#ffffff" />
+        <path d="M25 22 L28 6 L39 18 Z M55 22 L52 6 L41 18 Z" fill="#e9eef5" stroke="#b9c6d6" strokeWidth="1.2" strokeLinejoin="round" />
+        <path d="M28.5 18 L29.5 10 L35 16 Z M51.5 18 L50.5 10 L45 16 Z" fill="#ffc2d4" />
+        <circle cx="40" cy="31" r="17" fill="#e9eef5" stroke="#b9c6d6" strokeWidth="1.2" />
+        <path d="M31 30 Q34 33 37 30 M43 30 Q46 33 49 30" stroke="#5b4a5a" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+        <path d="M38 36 L42 36 L40 38.5 Z" fill="#ff8fab" />
+        <ellipse cx="29" cy="37" rx="3.6" ry="2" fill="#ffb3c6" opacity=".7" />
+        <ellipse cx="51" cy="37" rx="3.6" ry="2" fill="#ffb3c6" opacity=".7" />
+      </g>
+      <g>
+        <ellipse cx="82" cy="76" rx="13" ry="13" fill="#ffffff" stroke="#e2e8f0" />
+        <path d="M73 52 L75 42 L82 50 Z M91 52 L89 42 L82 50 Z" fill="#ffffff" stroke="#e2e8f0" />
+        <circle cx="82" cy="57" r="11" fill="#ffffff" stroke="#e2e8f0" />
+        <circle cx="78" cy="56" r="1.9" fill="#3b3040" />
+        <circle cx="86" cy="56" r="1.9" fill="#3b3040" />
+        <path d="M80.5 60.5 L83.5 60.5 L82 62.3 Z" fill="#ff8fab" />
+        <path className="fes-kitten-tail" d="M94 82 Q104 78 102 66" stroke="#ffffff" strokeWidth="4" fill="none" strokeLinecap="round" style={{ transformOrigin: '94px 82px' }} />
+      </g>
+      <path className="fes-bob-slow" d="M61 20 C55 15 52 11 55 7.5 C57.5 5 60 6 61 8.5 C62 6 64.5 5 67 7.5 C70 11 67 15 61 20 Z" fill="#7cb9f2" />
+    </svg>
+  )
+}
+
+function JasmineGround({ subtle }) {
+  const full = !subtle
+  const bushes = [
+    { x: 8, w: 110 },
+    { x: 22, w: 96, opt: true },
+    { x: 78, w: 100 },
+    { x: 92, w: 112, opt: true },
+  ].filter((b) => full || !b.opt)
+  return (
+    <>
+      <Hills back="#2c6a58" front="#3a8468" />
+      {bushes.map((b, i) => (
+        <At key={b.x} x={b.x} b={36} w={b.w} className={b.opt ? 'fes-hide-sm' : ''}>
+          <JasmineBush seed={i * 17 + 3} />
+        </At>
+      ))}
+      <At x={50} b={34} w={120}>
+        <JasmineHeart />
+      </At>
+      {full && (
+        <At x={64} b={36} w={92} className="fes-hide-sm">
+          <MomAndKitten />
+        </At>
+      )}
+      {Array.from({ length: subtle ? 4 : 9 }, (_, i) => (
+        <span key={i} className="fes-heart-up fes-heart-blue" style={{ left: `${6 + rand(i + 601) * 88}%`, animationDelay: `${-rand(i + 603) * 5}s`, animationDuration: `${4 + rand(i + 605) * 3}s` }}>
+          ♥
+        </span>
+      ))}
+    </>
+  )
+}
+
+/* ============================ วันพ่อ — canna field at sunrise ============================ */
+
+function Sunrise() {
+  return (
+    <svg viewBox="0 0 220 120" width="100%" aria-hidden="true" overflow="visible">
+      <g className="fes-rays" style={{ transformOrigin: '110px 110px' }}>
+        {Array.from({ length: 18 }, (_, i) => (
+          <path key={i} d="M110 110 L104 -10 L116 -10 Z" fill="rgba(253,224,71,.28)" transform={`rotate(${i * 20} 110 110)`} />
+        ))}
+      </g>
+      <circle cx="110" cy="110" r="58" fill="url(#fes-sunrise)" />
+      <defs>
+        <radialGradient id="fes-sunrise" cx="50%" cy="40%" r="60%">
+          <stop offset="0" stopColor="#fff7c2" />
+          <stop offset=".55" stopColor="#fcd34d" />
+          <stop offset="1" stopColor="#f59e0b" />
+        </radialGradient>
+      </defs>
+    </svg>
+  )
+}
+
+function Canna({ tone = 0 }) {
+  const petal = ['#facc15', '#fde047', '#fbbf24'][tone % 3]
+  return (
+    <svg viewBox="0 0 40 104" width="100%" aria-hidden="true">
+      <path d="M20 104 Q19 70 20 34" stroke="#2f7d3a" strokeWidth="3" fill="none" />
+      <path d="M20 92 Q2 80 4 56 Q16 70 20 84 Z" fill="#3f9b4c" />
+      <path d="M20 74 Q38 64 36 40 Q24 54 20 66 Z" fill="#4aaa57" />
+      <g transform="translate(20 24)">
+        {[-50, -15, 20, 55].map((a) => (
+          <path key={a} d="M0 8 C-9 -2 -8 -17 0 -22 C8 -17 9 -2 0 8 Z" fill={petal} stroke="#eab308" strokeWidth=".8" transform={`rotate(${a})`} />
+        ))}
+        <path d="M0 8 C-5 0 -5 -10 0 -14 C5 -10 5 0 0 8 Z" fill="#fef08a" />
+        {[[-2, -6], [2, -3], [-1, 1]].map(([x, y]) => (
+          <circle key={`${x}${y}`} cx={x} cy={y} r="1" fill="#ea580c" />
+        ))}
+      </g>
+    </svg>
+  )
+}
+
+function CannaGround({ subtle }) {
+  const full = !subtle
+  const flowers = [6, 11, 16, 22, 28, 35, 65, 72, 78, 84, 89, 94].map((x, i) => ({ x, opt: i % 2 === 1 }))
+  return (
+    <>
+      <At x={50} b={30} w={240}>
+        <Sunrise />
+      </At>
+      <Hills back="#5f7a2a" front="#77922f" />
+      {flowers
+        .filter((f) => full || !f.opt)
+        .map((f, i) => (
+          <At key={f.x} x={f.x} b={32} w={30} className={f.opt ? 'fes-hide-sm' : ''}>
+            <div className="fes-sway" style={{ animationDelay: `${-rand(i + 701) * 3}s`, animationDuration: `${3.2 + rand(i + 703) * 2}s` }}>
+              <Canna tone={i} />
+            </div>
+          </At>
+        ))}
+      {Array.from({ length: subtle ? 4 : 9 }, (_, i) => (
+        <span key={i} className="fes-heart-up fes-heart-gold" style={{ left: `${6 + rand(i + 711) * 88}%`, animationDelay: `${-rand(i + 713) * 5}s`, animationDuration: `${4 + rand(i + 715) * 3}s` }}>
+          ♥
+        </span>
+      ))}
+    </>
+  )
+}
+
+/* ============================ ครบรอบบริษัท — party ============================ */
+
+function Cake({ topper }) {
+  return (
+    <svg viewBox="0 0 150 150" width="100%" aria-hidden="true" overflow="visible">
+      <ellipse cx="75" cy="146" rx="70" ry="5" fill="rgba(0,0,0,.18)" />
+      <rect x="8" y="104" width="134" height="42" rx="8" fill="#fff4e6" />
+      <path d="M8 112 Q16 124 24 112 Q32 124 40 112 Q48 124 56 112 Q64 124 72 112 Q80 124 88 112 Q96 124 104 112 Q112 124 120 112 Q128 124 136 112 Q140 118 142 112 V106 H8 Z" fill="#3b82f6" />
+      {[24, 50, 76, 102, 128].map((x) => (
+        <circle key={x} cx={x} cy="134" r="3.4" fill="#fbbf24" />
+      ))}
+      <rect x="26" y="70" width="98" height="36" rx="7" fill="#ffd6e7" />
+      <path d="M26 78 Q34 88 42 78 Q50 88 58 78 Q66 88 74 78 Q82 88 90 78 Q98 88 106 78 Q114 88 124 78 V72 H26 Z" fill="#ffffff" />
+      <rect x="44" y="42" width="62" height="30" rx="6" fill="#ffffff" />
+      <path d="M44 50 Q52 58 60 50 Q68 58 76 50 Q84 58 92 50 Q100 58 106 50 V44 H44 Z" fill="#fbbf24" />
+      {[56, 75, 94].map((x, i) => (
+        <g key={x}>
+          <rect x={x - 2.5} y="24" width="5" height="18" rx="1.5" fill={['#f472b6', '#60a5fa', '#34d399'][i]} />
+          <path className="fes-flame" style={{ transformOrigin: `${x}px 24px`, animationDelay: `${-i * 0.3}s` }} d={`M${x} 10 C${x + 5} 16 ${x + 4} 22 ${x} 24 C${x - 4} 22 ${x - 5} 16 ${x} 10 Z`} fill="#ffb020" />
+        </g>
+      ))}
+      <g transform="translate(75 92)">
+        <rect x="-26" y="-9" width="52" height="18" rx="9" fill="#1d4ed8" />
+        <text x="0" y="5" textAnchor="middle" fontSize="12" fontWeight="800" fill="#ffffff" fontFamily="system-ui, sans-serif">
+          {topper}
+        </text>
+      </g>
+    </svg>
+  )
+}
+
+function BalloonBunch({ colors, flip }) {
+  return (
+    <div className="fes-balloons" style={{ transform: flip ? 'scaleX(-1)' : undefined }}>
+      {colors.map((c, i) => (
+        <span key={c} className="fes-sway" style={{ left: i * 18, bottom: 22 + (i % 2) * 18, animationDelay: `${-i * 0.8}s`, animationDuration: `${3.4 + i * 0.5}s` }}>
+          <Balloon color={c} w={28} />
+        </span>
+      ))}
+      <svg className="fes-balloon-weight" viewBox="0 0 30 22" width="30" aria-hidden="true">
+        <path d="M6 22 L9 10 H21 L24 22 Z" fill="#fbbf24" />
+        <rect x="8" y="7" width="14" height="4" rx="2" fill="#d97706" />
+      </svg>
+    </div>
+  )
+}
+
+function PartyGround({ subtle }) {
+  const full = !subtle
+  const anniversary = useFestivalStore((st) => st.anniversary)
+  const years = anniversaryYears(parseAnniversary(anniversary))
+  return (
+    <>
+      <div className="fes-stage" />
+      <At x={50} b={26} w={subtle ? 120 : 148}>
+        <Cake topper={years ? `${years} ปี` : 'STS'} />
+      </At>
+      <At x={18} b={26} w={80}>
+        <BalloonBunch colors={['#3b82f6', '#fbbf24', '#f472b6']} />
+      </At>
+      <At x={82} b={26} w={80}>
+        <BalloonBunch colors={['#22c55e', '#3b82f6', '#fbbf24']} flip />
+      </At>
+      {full && (
+        <>
+          <At x={33} b={28} w={46} className="fes-hide-sm">
+            <Gift color="#2563eb" ribbon="#fbbf24" />
+          </At>
+          <At x={67} b={28} w={42} className="fes-hide-sm">
+            <Gift color="#ec4899" ribbon="#ffffff" />
+          </At>
+        </>
+      )}
+      {Array.from({ length: subtle ? 4 : 10 }, (_, i) => (
+        <span key={i} className="fes-heart-up fes-star-up" style={{ left: `${5 + rand(i + 801) * 90}%`, animationDelay: `${-rand(i + 803) * 5}s`, animationDuration: `${4 + rand(i + 805) * 3}s` }}>
+          ★
+        </span>
+      ))}
+    </>
+  )
+}
+
 export const GROUNDS = {
   loykrathong: RiverGround,
   halloween: GraveyardGround,
@@ -750,6 +1019,9 @@ export const GROUNDS = {
   chinesenewyear: LionDanceGround,
   valentine: GardenGround,
   songkran: SongkranGround,
+  mothersday: JasmineGround,
+  fathersday: CannaGround,
+  anniversary: PartyGround,
 }
 
 // what clicking the ground does, per festival
@@ -761,4 +1033,7 @@ export const BURSTS = {
   chinesenewyear: { emojis: ['🧧', '🧨', '🍊', '✨'], text: 'ซินเจียยู่อี่!' },
   valentine: { emojis: ['💖', '💕', '💘', '🌹'] },
   songkran: { emojis: ['💦', '💧', '🌸', '🐘'], text: 'สาดน้ำ!' },
+  mothersday: { emojis: ['🤍', '🌼', '💙', '✨'], text: 'รักแม่' },
+  fathersday: { emojis: ['💛', '⭐', '🌟', '✨'], text: 'รักพ่อ' },
+  anniversary: { emojis: ['🎉', '🎈', '🎊', '✨'], text: 'ยินดีด้วย!' },
 }

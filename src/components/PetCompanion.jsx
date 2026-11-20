@@ -1,16 +1,36 @@
-import { useEffect, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
-import { X, Lock, Flame, EyeOff, Sparkles } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { X, Lock, Flame, EyeOff, Sparkles, Pencil, Check, AlertTriangle, ChevronRight, Briefcase } from 'lucide-react'
 import PetSprite from '../pet/PetSprite'
-import { usePetStore } from '../store/usePetStore'
+import { usePetStore, dayKey } from '../store/usePetStore'
+import { useStore } from '../store/useStore'
 import { useActiveFestival } from '../store/useFestivalStore'
-import { ACCESSORIES, RARITY, SPECIES, SLOTS, levelInfo, pickCoat, resolveOutfit, sizeForLevel } from '../pet/petData'
+import { buildStockRows, lowStockRows } from '../utils/stockStatus'
+import { formatNumber } from '../utils/format'
+import {
+  ACCESSORIES,
+  RARITY,
+  SPECIES,
+  SLOTS,
+  NAME_MAX,
+  WORK_XP_DAILY_CAP,
+  SLEEP_FROM_HOUR,
+  SLEEP_UNTIL_HOUR,
+  isSleepyHour,
+  levelInfo,
+  pickCoat,
+  resolveOutfit,
+  sizeForLevel,
+} from '../pet/petData'
 
 // The user's own pet, living along the bottom of every page.
 //  - walks back and forth on its own (pauses now and then, turns around at the edges)
 //  - its eyes follow the mouse; it blinks; hover = it stops and looks at you
-//  - click = happy face + hearts, and opens its panel (level / เติมไฟ streak / cat-or-dog /
-//    dress-up). It can be hidden from the panel, and brought back in ตั้งค่า.
+//  - click = happy face + hearts, and opens its panel (name / level / เติมไฟ streak /
+//    low stock / cat-or-dog / dress-up). It can be hidden from the panel, and brought
+//    back in ตั้งค่า.
+//  - reacts to work: hops and cheers on every save, gives a once-a-day heads-up when
+//    stock is running low, and dozes off after hours (19:00–06:00; a click wakes it).
 // Kept out of the way: small, hugs the bottom edge, stays right of the sidebar on wide
 // screens, and only the pet itself takes clicks.
 
@@ -18,7 +38,36 @@ const BASE_W = 66 // px at level 1 (desktop); grows with level
 const SPRITE_RATIO = 230 / 200
 const SPEED = 34 // px / s
 
+const WAKE_MS = 45 * 1000 // a click after hours keeps it awake this long
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+
+// low-stock products from the data already loaded for the pages (same rule as สินค้าคงเหลือ)
+function useLowStock() {
+  const products = useStore((s) => s.products)
+  const stockIns = useStore((s) => s.stockIns)
+  const stockOuts = useStore((s) => s.stockOuts)
+  const loading = useStore((s) => s.loading)
+  const low = useMemo(() => (loading ? [] : lowStockRows(buildStockRows(products, stockIns, stockOuts))), [loading, products, stockIns, stockOuts])
+  return { low, loading }
+}
+
+// after-hours: checked every minute; a click keeps it awake for a while
+function useSleepy() {
+  const [late, setLate] = useState(() => isSleepyHour())
+  const [awakeUntil, setAwakeUntil] = useState(0)
+  const [, force] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setLate(isSleepyHour()), 60 * 1000)
+    return () => clearInterval(t)
+  }, [])
+  useEffect(() => {
+    if (!awakeUntil) return undefined
+    const t = setTimeout(() => force((n) => n + 1), Math.max(0, awakeUntil - Date.now()) + 50)
+    return () => clearTimeout(t)
+  }, [awakeUntil])
+  const sleeping = late && Date.now() > awakeUntil
+  return { sleeping, late, wake: () => setAwakeUntil(Date.now() + WAKE_MS) }
+}
 
 export default function PetCompanion() {
   const { pathname } = useLocation()
@@ -33,10 +82,14 @@ export default function PetCompanion() {
   const [happy, setHappy] = useState(false)
   const [hearts, setHearts] = useState([])
   const [levelFx, setLevelFx] = useState(false)
+  const [cheer, setCheer] = useState(false)
+  const { sleeping, late, wake } = useSleepy()
+  const { low, loading } = useLowStock()
 
   const outerRef = useRef(null)
   const flipRef = useRef(null)
-  const st = useRef({ x: -1, dir: -1, mode: 'idle', until: 0, hover: false, mx: null, my: null, lastMove: 0 })
+  const st = useRef({ x: -1, dir: -1, mode: 'idle', until: 0, hover: false, mx: null, my: null, lastMove: 0, sleeping: false })
+  st.current.sleeping = sleeping
 
   const visible = ready && !pet.hidden && pathname !== '/login'
   const level = levelInfo(pet.xp).level
@@ -45,6 +98,7 @@ export default function PetCompanion() {
   const height = Math.round(width * SPRITE_RATIO)
   const coat = pickCoat(pet.species, owner)
   const outfit = resolveOutfit(festival, pet.equipped)
+  const petName = pet.name || coat.name
 
   // level-up → a little jump + sparkle ring
   const lastLevelEvent = events.filter((e) => e.type === 'levelup').slice(-1)[0]?.id
@@ -54,6 +108,36 @@ export default function PetCompanion() {
     const t = setTimeout(() => setLevelFx(false), 1300)
     return () => clearTimeout(t)
   }, [lastLevelEvent])
+
+  // a save anywhere in the app → a happy hop (the bubble says what was saved)
+  const lastCheer = events.filter((e) => e.type === 'xp' || e.type === 'cheer').slice(-1)[0]?.id
+  useEffect(() => {
+    if (!lastCheer) return undefined
+    setCheer(true)
+    setHappy(true)
+    const id = Date.now()
+    setHearts((h) => [...h.slice(-4), id])
+    const t1 = setTimeout(() => setHearts((h) => h.filter((x) => x !== id)), 1100)
+    const t2 = setTimeout(() => {
+      setCheer(false)
+      setHappy(false)
+    }, 1300)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+      setCheer(false)
+      setHappy(false)
+    }
+  }, [lastCheer])
+
+  // low stock: a gentle heads-up once a day (the list is in the panel)
+  const hasLow = low.length > 0
+  useEffect(() => {
+    if (!visible || loading || !hasLow) return undefined
+    const t = setTimeout(() => usePetStore.getState().warnLowStock(low.length), 2500)
+    return () => clearTimeout(t)
+    // re-run only when data first arrives / low stock appears, not on every change
+  }, [visible, loading, hasLow])
 
   // a new day may start while the app stays open; also push the account copy on hide
   useEffect(() => {
@@ -93,7 +177,7 @@ export default function PetCompanion() {
       if (s.x < 0) s.x = maxX
       s.x = clamp(s.x, minX, maxX)
 
-      const paused = s.hover || open || reduce
+      const paused = s.hover || open || reduce || s.sleeping
       if (!paused && s.mode === 'walk') {
         s.x += s.dir * SPEED * dt
         if (s.x <= minX || s.x >= maxX) {
@@ -128,7 +212,7 @@ export default function PetCompanion() {
         flip.style.transform = `scaleX(${facing})`
         let gx = isWalking ? s.dir * 0.7 : 0
         let gy = 0.15
-        if (s.mx != null && now - s.lastMove < 4500) {
+        if (!s.sleeping && s.mx != null && now - s.lastMove < 4500) {
           const cx = s.x + width / 2
           const cy = window.innerHeight - 4 - height * 0.62
           gx = clamp((s.mx - cx) / 220, -1, 1)
@@ -149,6 +233,7 @@ export default function PetCompanion() {
   if (!visible) return null
 
   function pat() {
+    if (late) wake()
     setHappy(true)
     const id = Date.now()
     setHearts((h) => [...h.slice(-4), id])
@@ -178,33 +263,40 @@ export default function PetCompanion() {
         {levelFx && <span className="pet-ring" />}
         <button
           type="button"
-          className={`pet-body ${levelFx ? 'levelup' : ''}`}
-          aria-label={`สัตว์เลี้ยงของฉัน ${SPECIES[pet.species]?.label || ''}${coat.name} เลเวล ${level} — กดเพื่อดูและแต่งตัว`}
+          className={`pet-body ${levelFx ? 'levelup' : ''} ${cheer ? 'cheer' : ''}`}
+          aria-label={`สัตว์เลี้ยงของฉัน ${petName} (${SPECIES[pet.species]?.label || ''}${coat.name}) เลเวล ${level}${sleeping ? ' กำลังงีบ' : ''}${hasLow ? ` · สินค้าใกล้หมด ${low.length} รายการ` : ''} — กดเพื่อดูและแต่งตัว`}
           aria-expanded={open}
           onClick={pat}
           onPointerEnter={() => (st.current.hover = true)}
           onPointerLeave={() => (st.current.hover = false)}
         >
           <div ref={flipRef} className="pet-flip">
-            <div className={`pet-waddle ${walking ? 'walking' : ''}`}>
-              <PetSprite species={pet.species} coat={coat} outfit={outfit} pose="walk" walking={walking} happy={happy} />
+            <div className={`pet-waddle ${walking ? 'walking' : ''} ${sleeping && !happy ? 'sleeping' : ''}`}>
+              <PetSprite species={pet.species} coat={coat} outfit={outfit} pose="walk" walking={walking} happy={happy} sleepy={sleeping} />
             </div>
           </div>
+          {sleeping && !happy && (
+            <span className="pet-zzz" aria-hidden="true">
+              <span>z</span>
+              <span>z</span>
+              <span>z</span>
+            </span>
+          )}
         </button>
       </div>
-      {open && <PetPanel x={st.current.x} petH={height} coat={coat} outfit={outfit} onClose={() => setOpen(false)} />}
+      {open && <PetPanel x={st.current.x} petH={height} coat={coat} outfit={outfit} low={low} late={late} onClose={() => setOpen(false)} />}
     </>
   )
 }
 
-function PetPanel({ x, petH, coat, outfit, onClose }) {
+function PetPanel({ x, petH, coat, outfit, low, late, onClose }) {
   const pet = usePetStore((s) => s.pet)
   const owner = usePetStore((s) => s.owner)
   const { setSpecies, equip, setHidden } = usePetStore.getState()
   const info = levelInfo(pet.xp)
   const rar = RARITY[coat.rarity]
-  const today = new Date()
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const todayKey = dayKey()
+  const workUsed = pet.workDay === todayKey ? pet.workXp || 0 : 0
   const ref = useRef(null)
 
   useEffect(() => {
@@ -240,16 +332,23 @@ function PetPanel({ x, petH, coat, outfit, onClose }) {
         <div className="pet-panel-preview" style={{ '--gx': 0, '--gy': 0.2 }}>
           <PetSprite species={pet.species} coat={coat} outfit={outfit} pose="walk" happy />
         </div>
-        <div className="min-w-0">
-          <div className="truncate text-base font-bold text-[var(--text-primary)]">
-            {SPECIES[pet.species].emoji} {coat.name}
+        <div className="min-w-0 flex-1 pr-6">
+          <PetName coat={coat} />
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            <span className="inline-block rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ color: rar.color, background: `${rar.color}22`, border: `1px solid ${rar.color}55` }}>
+              ★ {rar.label}
+            </span>
+            {pet.name && <span className="truncate text-[11px] text-[var(--text-muted)]">{coat.name}</span>}
           </div>
-          <span className="mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ color: rar.color, background: `${rar.color}22`, border: `1px solid ${rar.color}55` }}>
-            ★ {rar.label}
-          </span>
           <div className="mt-1 truncate text-xs text-[var(--text-muted)]">น้องของ {owner} · สีขนสุ่มจากชื่อผู้ใช้</div>
         </div>
       </div>
+
+      {late && (
+        <p className="mt-3 rounded-lg bg-[var(--bg-card-alt)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
+          😴 นอกเวลางาน ({SLEEP_FROM_HOUR}:00–{String(SLEEP_UNTIL_HOUR).padStart(2, '0')}:00) น้องขอแอบงีบ — กดที่น้องเพื่อปลุก
+        </p>
+      )}
 
       {/* level + XP */}
       <div className="mt-4">
@@ -262,6 +361,11 @@ function PetPanel({ x, petH, coat, outfit, onClose }) {
         <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-[var(--bg-card-alt)]">
           <div className="pet-xpbar h-full rounded-full" style={{ width: `${Math.round(info.pct * 100)}%` }} />
         </div>
+        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
+          <Briefcase size={12} className="flex-shrink-0" />
+          XP จากงานวันนี้ {workUsed}/{WORK_XP_DAILY_CAP}
+          {workUsed >= WORK_XP_DAILY_CAP ? ' · ครบแล้ว พรุ่งนี้มาต่อนะ' : ''}
+        </div>
       </div>
 
       {/* เติมไฟ streak */}
@@ -272,6 +376,30 @@ function PetPanel({ x, petH, coat, outfit, onClose }) {
           {pet.lastDay === todayKey ? ' · วันนี้เติมไฟแล้ว ✓' : ' · เข้าใช้วันนี้เพื่อเติมไฟ'}
         </div>
       </div>
+
+      {/* low stock — same rule as the สินค้าคงเหลือ page */}
+      {low.length > 0 && (
+        <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
+            <AlertTriangle size={14} className="flex-shrink-0 text-amber-500" /> สินค้าเหลือน้อย {formatNumber(low.length)} รายการ
+          </div>
+          <ul className="mt-1.5 flex flex-col gap-1">
+            {low.slice(0, 3).map((r) => (
+              <li key={r.id} className="flex items-center justify-between gap-2 text-xs text-[var(--text-secondary)]">
+                <span className="min-w-0 truncate">
+                  <span className="font-semibold text-[var(--text-primary)]">{r.code}</span> {r.name}
+                </span>
+                <span className={`flex-shrink-0 font-bold ${r.qty <= 0 ? 'text-red-500' : 'text-[var(--text-primary)]'}`}>
+                  {r.qty <= 0 ? 'หมด' : `${formatNumber(r.qty)} ${r.unit || ''}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <Link to="/stock" onClick={onClose} className="mt-2 inline-flex items-center gap-0.5 text-xs font-semibold text-[var(--text-accent)] hover:underline">
+            ดูทั้งหมดที่หน้าสินค้าคงเหลือ <ChevronRight size={13} />
+          </Link>
+        </div>
+      )}
 
       {/* cat / dog */}
       <div className="mt-3 grid grid-cols-2 gap-2">
@@ -320,7 +448,7 @@ function PetPanel({ x, petH, coat, outfit, onClose }) {
         })}
       </div>
       <p className="mt-2 text-[11px] leading-snug text-[var(--text-muted)]">
-        ชุดเทศกาลใส่ให้อัตโนมัติ — ของที่สวมเองจะแทนชุดเทศกาลในช่องเดียวกัน · ได้ XP จากเติมไฟรายวัน, บันทึกรับ/จ่ายสินค้า, เพิ่มสินค้า
+        ชุดเทศกาลใส่ให้อัตโนมัติ — ของที่สวมเองจะแทนชุดเทศกาลในช่องเดียวกัน · ได้ XP จากเติมไฟรายวัน และจากการบันทึกรับ/จ่าย/เพิ่มสินค้า (วันละไม่เกิน {WORK_XP_DAILY_CAP} XP)
       </p>
 
       <button
@@ -332,6 +460,74 @@ function PetPanel({ x, petH, coat, outfit, onClose }) {
         className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border-color)] py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-card-alt)]"
       >
         <EyeOff size={13} /> ซ่อนสัตว์เลี้ยง (เปิดกลับได้ที่ ตั้งค่า)
+      </button>
+    </div>
+  )
+}
+
+// the pet's name — tap the pencil to rename (empty = back to the coat name)
+function PetName({ coat }) {
+  const pet = usePetStore((s) => s.pet)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    if (editing) inputRef.current?.select()
+  }, [editing])
+
+  const save = () => {
+    usePetStore.getState().setName(draft)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <form
+        className="flex items-center gap-1"
+        onSubmit={(e) => {
+          e.preventDefault()
+          save()
+        }}
+      >
+        <input
+          ref={inputRef}
+          value={draft}
+          maxLength={NAME_MAX * 2}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.stopPropagation()
+              setEditing(false)
+            }
+          }}
+          placeholder={coat.name}
+          aria-label={`ตั้งชื่อสัตว์เลี้ยง (ไม่เกิน ${NAME_MAX} ตัวอักษร)`}
+          className="min-w-0 flex-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card-alt)] px-2 py-1 text-sm font-semibold text-[var(--text-primary)] outline-none focus:border-[var(--text-accent)]"
+        />
+        <button type="submit" aria-label="บันทึกชื่อ" className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-500">
+          <Check size={15} />
+        </button>
+      </form>
+    )
+  }
+
+  return (
+    <div className="flex min-w-0 items-center gap-1">
+      <span className="truncate text-base font-bold text-[var(--text-primary)]">
+        {SPECIES[pet.species].emoji} {pet.name || coat.name}
+      </span>
+      <button
+        type="button"
+        onClick={() => {
+          setDraft(pet.name || '')
+          setEditing(true)
+        }}
+        aria-label={pet.name ? 'เปลี่ยนชื่อสัตว์เลี้ยง' : 'ตั้งชื่อสัตว์เลี้ยง'}
+        title={pet.name ? 'เปลี่ยนชื่อ' : 'ตั้งชื่อให้น้อง'}
+        className="flex flex-shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-semibold text-[var(--text-muted)] transition hover:bg-[var(--bg-card-alt)] hover:text-[var(--text-primary)]"
+      >
+        <Pencil size={12} /> {pet.name ? '' : 'ตั้งชื่อ'}
       </button>
     </div>
   )

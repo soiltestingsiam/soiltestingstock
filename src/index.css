@@ -381,6 +381,18 @@ button:active:not(:disabled) { transform: scale(.97) }
 :root[data-festival='valentine'] { --bg-page: #1e0a16; --bg-card: #2c1021; --bg-card-alt: #371328; --text-accent: #ff9fc3; --fes-glow: #ff5a8a; }
 :root[data-theme='light'][data-festival='valentine'] { --bg-page: #fdeef3; --bg-card: #fff7fb; --bg-card-alt: #fbeaf1; --fes-glow: #e0417a; }
 
+/* วันแม่ — ฟ้าอ่อน/ขาวมะลิ */
+:root[data-festival='mothersday'] { --bg-page: #0b1e3a; --bg-card: #11294d; --bg-card-alt: #15315b; --text-accent: #a5d8ff; --fes-glow: #74b9ff; }
+:root[data-theme='light'][data-festival='mothersday'] { --bg-page: #eaf4ff; --bg-card: #f8fbff; --bg-card-alt: #edf5ff; --fes-glow: #3b82f6; }
+
+/* วันพ่อ — เหลือง/ทอง */
+:root[data-festival='fathersday'] { --bg-page: #1f1805; --bg-card: #2b220a; --bg-card-alt: #352a0c; --text-accent: #ffe066; --fes-glow: #facc15; }
+:root[data-theme='light'][data-festival='fathersday'] { --bg-page: #fdf8e1; --bg-card: #fffdf3; --bg-card-alt: #fbf4d8; --fes-glow: #ca8a04; }
+
+/* ครบรอบบริษัท — น้ำเงิน/ทอง */
+:root[data-festival='anniversary'] { --bg-page: #0a1636; --bg-card: #122149; --bg-card-alt: #172a58; --text-accent: #ffd27f; --fes-glow: #fbbf24; }
+:root[data-theme='light'][data-festival='anniversary'] { --bg-page: #edf2fd; --bg-card: #fafcff; --bg-card-alt: #eff3fc; --fes-glow: #b7791f; }
+
 /* ---- the fixed decoration layer ---- */
 @keyframes fes-layer-in { from { opacity: 0 } }
 .fes-layer { position: fixed; inset: 0; z-index: 45; overflow: hidden; pointer-events: none; opacity: .92; animation: fes-layer-in .8s ease both }
@@ -620,6 +632,9 @@ button:active:not(:disabled) { transform: scale(.97) }
 @keyframes pet-levelup { 0% { transform: translateY(0) scale(1) } 30% { transform: translateY(-20px) scale(1.14) } 62% { transform: translateY(0) scale(.95) } 100% { transform: none } }
 @keyframes pet-ring { 0% { opacity: .9; transform: translate(-50%, -50%) scale(.3) } 100% { opacity: 0; transform: translate(-50%, -50%) scale(2.3) } }
 @keyframes pet-flame { 0%, 100% { transform: scale(1) rotate(-4deg) } 50% { transform: scale(1.15) rotate(4deg) } }
+@keyframes pet-cheer { 0%, 100% { transform: translateY(0) } 25% { transform: translateY(-14px) rotate(-4deg) } 50% { transform: translateY(0) } 72% { transform: translateY(-7px) rotate(3deg) } }
+@keyframes pet-doze { 0%, 100% { transform: translateY(2px) scale(1.02, .96) } 50% { transform: translateY(3px) scale(1.04, .93) } }
+@keyframes pet-zzz { 0% { opacity: 0; transform: translate(0, 0) scale(.6) } 25% { opacity: .9 } 100% { opacity: 0; transform: translate(14px, -34px) scale(1.15) } }
 
 /* sprite internals */
 .pet-sprite { display: block; overflow: visible }
@@ -668,10 +683,19 @@ button:active:not(:disabled) { transform: scale(.97) }
 .pet-waddle.walking { animation: pet-waddle .5s ease-in-out infinite }
 .pet-bubbles { position: absolute; bottom: 100%; display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; pointer-events: none }
 .pet-bubble {
-  white-space: nowrap; padding: 4px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff;
-  background: rgba(15, 23, 42, .9); box-shadow: 0 6px 16px rgba(0, 0, 0, .25); animation: pet-bubble 3s ease both;
+  width: max-content; max-width: min(290px, calc(100vw - 24px)); padding: 4px 11px; border-radius: 14px; font-size: 12px; font-weight: 700;
+  line-height: 1.45; color: #fff; background: rgba(15, 23, 42, .9); box-shadow: 0 6px 16px rgba(0, 0, 0, .25); animation: pet-bubble 3s ease both;
 }
-.pet-bubble.checkin { background: linear-gradient(90deg, #f97316, #ef4444) }
+.pet-bubble.checkin { background: linear-gradient(90deg, #f97316, #ef4444); animation-duration: 4.2s }
+.pet-bubble.xp, .pet-bubble.cheer { background: linear-gradient(90deg, #059669, #0d9488) }
+.pet-bubble.warn { background: linear-gradient(90deg, #b45309, #c2410c); animation-duration: 6.5s }
+.pet-body.cheer .pet-waddle { animation: pet-cheer .9s cubic-bezier(.3, 1.4, .5, 1) }
+.pet-waddle.sleeping { animation: pet-doze 3.6s ease-in-out infinite }
+.pet-zzz { position: absolute; right: 8%; top: 4%; pointer-events: none; font-weight: 800; color: var(--text-accent) }
+.pet-zzz span { position: absolute; font-size: 13px; animation: pet-zzz 3s ease-out infinite; opacity: 0 }
+.pet-zzz span:nth-child(2) { animation-delay: 1s; font-size: 11px; left: 8px }
+.pet-zzz span:nth-child(3) { animation-delay: 2s; font-size: 9px; left: 15px }
+:root[data-theme='light'] .pet-zzz { color: #334155 }
 .pet-bubble.levelup { background: linear-gradient(90deg, #f59e0b, #d946ef); font-size: 13px; animation-duration: 4.2s }
 .pet-heart { position: absolute; bottom: 70%; font-size: 16px; pointer-events: none; animation: pet-heart 1.1s ease-out forwards }
 .pet-ring { position: absolute; left: 50%; top: 55%; width: 90%; aspect-ratio: 1; border-radius: 50%; border: 3px solid #fbbf24; pointer-events: none; animation: pet-ring 1.1s ease-out forwards }
@@ -687,6 +711,23 @@ button:active:not(:disabled) { transform: scale(.97) }
 }
 .pet-panel-x:hover { background: var(--bg-card-alt) }
 .pet-panel-preview { width: 64px; height: 74px; flex-shrink: 0 }
+
+/* empty states: the user's pet peeking out of an empty box */
+@keyframes empty-q { 0%, 100% { transform: translateY(0) rotate(-8deg) } 50% { transform: translateY(-5px) rotate(8deg) } }
+.empty-pet .pet-sprite { overflow: visible }
+.empty-pet .empty-pet-head .pet-sprite { animation: pet-peek 4.6s ease-in-out infinite }
+.empty-pet .empty-q { animation: empty-q 2.4s ease-in-out infinite; opacity: .85 }
+
+/* loading: paw prints walking across */
+@keyframes paw-step { 0%, 12% { opacity: 0; transform: scale(.5) } 26% { opacity: 1; transform: scale(1) } 70% { opacity: 1 } 100% { opacity: 0; transform: scale(1) } }
+.paw-trail { display: flex; align-items: flex-start; gap: 8px; height: 46px; color: var(--text-accent) }
+.paw-trail svg { width: 22px; height: 22px; opacity: 0; animation: paw-step 2.2s ease-in-out infinite; transform: rotate(90deg) }
+.paw-trail svg:nth-child(odd) { margin-top: 18px }
+.paw-trail svg:nth-child(2) { animation-delay: .3s }
+.paw-trail svg:nth-child(3) { animation-delay: .6s }
+.paw-trail svg:nth-child(4) { animation-delay: .9s }
+.paw-trail svg:nth-child(5) { animation-delay: 1.2s }
+:root[data-theme='light'] .paw-trail { color: #2563eb }
 .pet-xpbar { background: linear-gradient(90deg, #f59e0b, #ef4444, #d946ef); box-shadow: 0 0 10px rgba(245, 158, 11, .5); transition: width .5s ease }
 .pet-flame { animation: pet-flame 1.2s ease-in-out infinite }
 .pet-lv { color: var(--text-accent) }
@@ -803,6 +844,32 @@ button:active:not(:disabled) { transform: scale(.97) }
 @keyframes fes-flag-up { 0%, 40%, 100% { transform: rotate(0) } 55%, 85% { transform: rotate(-80deg) } }
 .fes-heart-up { position: absolute; bottom: 40px; color: #ff5a8a; font-size: 14px; text-shadow: 0 0 6px rgba(255, 90, 140, .6); animation: fes-heart-up 5s ease-in infinite }
 @keyframes fes-heart-up { 0% { transform: translateY(0) scale(.6); opacity: 0 } 15% { opacity: 1 } 100% { transform: translateY(-120px) scale(1.1); opacity: 0 } }
+.fes-heart-up.fes-heart-blue { color: #7cc4ff; text-shadow: 0 0 6px rgba(124, 196, 255, .7) }
+.fes-heart-up.fes-heart-gold { color: #facc15; text-shadow: 0 0 6px rgba(250, 204, 21, .7) }
+.fes-heart-up.fes-star-up { color: #fbbf24; text-shadow: 0 0 6px rgba(251, 191, 36, .75) }
+
+/* 🌼 วันแม่ — jasmine garland swags, falling jasmine, mom + kitten */
+.fes-maalai { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between }
+.fes-maalai svg { flex: 1; height: auto; max-height: 120px; overflow: visible }
+.fes-tassel { transform-box: fill-box; transform-origin: 50% 0; animation: fes-tassel 3.2s ease-in-out infinite }
+@keyframes fes-tassel { 0%, 100% { transform: rotate(-5deg) } 50% { transform: rotate(5deg) } }
+.fes-flower-fall { position: absolute; top: -4vh; animation: fes-petal-fall linear infinite; will-change: transform }
+.fes-flower-fall svg { display: block; filter: drop-shadow(0 0 4px rgba(255, 255, 255, .35)) }
+.fes-kitten-tail { animation: fes-kitten-tail 1.4s ease-in-out infinite }
+@keyframes fes-kitten-tail { 0%, 100% { transform: rotate(-10deg) } 50% { transform: rotate(12deg) } }
+
+/* 💛 วันพ่อ — sunrise over a canna field */
+.fes-rays { transform-box: view-box; animation: sts-spin 60s linear infinite }
+
+/* 🎉 ครบรอบบริษัท — stage, cake, balloons */
+.fes-stage { position: absolute; left: 0; right: 0; bottom: 0; height: 34px; background: linear-gradient(#1e3a8a, #172554); border-top: 3px solid #fbbf24 }
+:root[data-theme='light'] .fes-stage { background: linear-gradient(#c7d6fb, #a9bdf3) }
+.fes-flame { transform-box: fill-box; transform-origin: 50% 100%; animation: fes-candle 0.9s ease-in-out infinite alternate; filter: drop-shadow(0 0 4px rgba(255, 176, 32, .9)) }
+@keyframes fes-candle { 0% { transform: scale(1, 1) rotate(-3deg) } 100% { transform: scale(.88, 1.12) rotate(3deg) } }
+.fes-balloons { position: relative; height: 150px }
+.fes-balloons > span { position: absolute; display: block; transform-origin: 50% 100% }
+.fes-balloon-weight { position: absolute; left: 22px; bottom: 0 }
+.fes-balloon-rise { position: absolute; bottom: -10vh; animation: fes-rise linear infinite; will-change: transform; opacity: .85 }
 
 /* 🐘 songkran */
 .fes-pond { position: absolute; left: 0; right: 0; bottom: 0; height: 58px; overflow: hidden; background: linear-gradient(to bottom, #6fd6f7, #2a9fd6); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .5) }
@@ -866,7 +933,9 @@ button:active:not(:disabled) { transform: scale(.97) }
   .fes-welcome-emoji::before, .fes-welcome-emoji::after { animation: none !important; opacity: 0 }
   .fes-welcome-card { opacity: 1 !important; transform: none !important }
   /* keep the auto-dismiss countdown visible so the popup still closes on its own */
-  .pet-sprite *, .pet-sprite, .pet-waddle, .login-pet, .pet-bubble, .pet-heart, .pet-ring, .pet-body.levelup, .pet-flame { animation: none !important }
+  .pet-sprite *, .pet-sprite, .pet-waddle, .login-pet, .pet-bubble, .pet-heart, .pet-ring, .pet-body.levelup, .pet-flame, .pet-zzz span, .empty-pet *, .paw-trail svg { animation: none !important }
+  .paw-trail svg { opacity: .75 }
+  .pet-zzz span:first-child { opacity: .8 }
   .pet-sprite .pet-lift-l, .pet-sprite .pet-lift-r { transition-duration: .2s }
   /* no idle motion and the companion doesn't walk — the eyes still follow, and the paws
      still cover the password */

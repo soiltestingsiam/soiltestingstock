@@ -60,7 +60,7 @@ export default function Sidebar({ mobileOpen = false, onClose = () => {} }) {
           <SealLogo size={40} coin />
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-bold text-[var(--text-primary)]">Inventory System</div>
-            <div className="truncate text-[10px] font-medium tracking-wide text-[var(--text-faint)]">
+            <div className="truncate text-[10px] font-medium tracking-wide text-[var(--text-secondary)]">
               STS · SOIL TESTING SIAM
             </div>
           </div>
@@ -106,7 +106,7 @@ export default function Sidebar({ mobileOpen = false, onClose = () => {} }) {
               <div className="truncate text-sm font-semibold text-[var(--text-primary)]">
                 {currentUser?.username ?? '-'}
               </div>
-              <div className="flex items-center gap-1 text-[11px] text-[var(--text-faint)]">
+              <div className="flex items-center gap-1 text-[11px] text-[var(--text-secondary)]">
                 <ShieldCheck size={11} />
                 {currentUser?.role === 'Admin' ? 'Admin' : 'Staff'}
               </div>

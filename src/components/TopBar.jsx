@@ -46,7 +46,7 @@ export default function TopBar() {
               <div className="text-sm font-semibold text-[var(--text-primary)]">
                 {currentUser?.username ?? '-'}
               </div>
-              <div className="text-[11px] text-[var(--text-faint)]">
+              <div className="text-[11px] text-[var(--text-secondary)]">
                 {currentUser?.role === 'Admin' ? 'administrator' : 'user profile'}
               </div>
             </div>
@@ -75,6 +75,7 @@ export default function TopBar() {
           </button>
           <button
             onClick={handleSignOut}
+            aria-label="Sign out"
             className="flex flex-shrink-0 items-center gap-2 rounded-full border border-[var(--border-color)] bg-[var(--bg-surface-soft)] px-2.5 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover-strong)] sm:px-4"
           >
             <LogOut size={16} />
