@@ -50,9 +50,10 @@ export function withoutLaterOpenings(list, toSortable) {
 }
 
 // The ยอดยกมา rows at the top of a ledger (rolled-up earlier movements and/or imported
-// ยอดยกมา rows) shown as ONE line, e.g. "ยอดยกมาปี 2568". Running balances are unchanged:
-// the merged line carries the balance of the last row it replaces.
-export function mergeLeadingOpening(ledger, label) {
+// ยอดยกมา rows) shown as ONE line, e.g. "ยอดยกมาปี 2568", dated `date` (the last day of the
+// year before — 31/12/2568 — like the CD program). Running balances are unchanged: the
+// merged line carries the balance of the last row it replaces.
+export function mergeLeadingOpening(ledger, label, date = null) {
   const rows = ledger.rows
   let n = 0
   while (n < rows.length && rows[n].group === 'opening') n += 1
@@ -64,7 +65,7 @@ export function mergeLeadingOpening(ledger, label) {
   const merged = {
     ...last,
     group: 'opening',
-    date: null,
+    date,
     sortable: lead[0].sortable,
     docNo: label,
     qty,
@@ -86,7 +87,8 @@ export function yearLedger(product, ins, outs, be) {
     fromSortable,
     toSortable,
   })
-  return mergeLeadingOpening(ledger, openingLabel(be))
+  // dated the last day of the previous year, e.g. 31/12/2568 for the 2569 book
+  return mergeLeadingOpening(ledger, openingLabel(be), `31/12/${be - 1 - BE_OFFSET}`)
 }
 
 // how many rows each year holds: { be, in, out, opening, total } newest first
