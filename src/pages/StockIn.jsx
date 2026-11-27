@@ -7,7 +7,7 @@ import DateTextInput from '../components/DateTextInput'
 import TransactionSearchModal from '../components/TransactionSearchModal'
 import StockImportModal from '../components/StockImportModal'
 import ProductCodeField from '../components/ProductCodeField'
-import StockInProductPanel from '../components/StockInProductPanel'
+import StockInProductPanel, { StockInPhotoCard } from '../components/StockInProductPanel'
 import MoneyInput from '../components/MoneyInput'
 import { WarehouseIllustration } from '../components/DashboardIllustrations'
 import { useStore } from '../store/useStore'
@@ -38,6 +38,7 @@ export default function StockIn() {
   const addStockIn = useStore((s) => s.addStockIn)
   const updateStockIn = useStore((s) => s.updateStockIn)
   const updateProduct = useStore((s) => s.updateProduct)
+  const setProductImage = useStore((s) => s.setProductImage)
   const products = useStore((s) => s.products)
 
   const [form, setForm] = useState(makeEmptyForm)
@@ -46,6 +47,9 @@ export default function StockIn() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
+  // the product photo picked on this form (saved for the product when Save is pressed)
+  const [photoPending, setPhotoPending] = useState(null)
+  const [photoMsg, setPhotoMsg] = useState(null) // { text, tone: 'busy' | 'ok' | 'error' }
 
   useEffect(() => {
     const editId = searchParams.get('edit')
@@ -94,6 +98,7 @@ export default function StockIn() {
 
   function resetForm() {
     setForm(makeEmptyForm())
+    setPhotoPending(null)
     setEditingId(null)
   }
 
@@ -132,6 +137,23 @@ export default function StockIn() {
 
     const msg = editingId ? 'บันทึกการแก้ไขเรียบร้อย' : `บันทึกรับสินค้า ${payload.productCode} เรียบร้อย`
     setSavedMsg(updatesList ? `${msg} · อัปเดตราคาใน PRODUCT LIST เป็น ${formatMoney(price)} บาท` : msg)
+
+    // the photo picked on this form goes to the product — after the receipt, and a photo
+    // problem only shows a message (the receipt itself is never affected)
+    if (photoPending) {
+      const change = photoPending
+      const code = product.code
+      setPhotoPending(null)
+      setPhotoMsg({ text: `กำลังบันทึกรูปของ ${code}…`, tone: 'busy' })
+      setProductImage(product.id, change).then((res) => {
+        setPhotoMsg(
+          res.ok
+            ? { text: change.remove ? `ลบรูปของ ${code} แล้ว` : `บันทึกรูปของ ${code} แล้ว ✓`, tone: 'ok' }
+            : { text: `บันทึกรับสินค้าแล้ว แต่ยังไม่ได้บันทึกรูป — ${res.message}`, tone: 'error' },
+        )
+        if (res.ok) setTimeout(() => setPhotoMsg(null), 4500)
+      })
+    }
     setTimeout(() => setSavedMsg(''), 4000)
     resetForm()
   }
@@ -192,11 +214,15 @@ export default function StockIn() {
             <FormRow label="3. ชื่อสินค้า">
               <input value={form.productName} readOnly placeholder="ขึ้นอัตโนมัติจาก PRODUCT LIST" className={inputClass('cursor-not-allowed opacity-80')} />
             </FormRow>
-            {form.productCode.trim() && (
-              <FormRow label="รูปสินค้า">
-                <StockInProductPanel code={form.productCode} productId={form.productId} onCreated={(p) => handleProductSelect(p.code, p)} />
-              </FormRow>
-            )}
+            <FormRow label="รูปสินค้า">
+              <StockInProductPanel
+                code={form.productCode}
+                productId={form.productId}
+                pending={photoPending}
+                onPendingChange={setPhotoPending}
+                onCreated={(p) => handleProductSelect(p.code, p)}
+              />
+            </FormRow>
             <FormRow label="4. ผู้ผลิต / ผู้ขาย">
               <input value={form.supplier} onChange={set('supplier')} className={inputClass()} />
             </FormRow>
@@ -223,14 +249,29 @@ export default function StockIn() {
             </FormRow>
           </div>
           <div className="hidden w-56 flex-shrink-0 justify-center lg:flex">
-            <div className="w-40">
-              <WarehouseIllustration />
-            </div>
+            <StockInPhotoCard
+              productId={form.productId}
+              pending={photoPending}
+              fallback={
+                <div className="w-40">
+                  <WarehouseIllustration />
+                </div>
+              }
+            />
           </div>
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
-          {savedMsg && <span className="mr-auto text-sm text-emerald-300">{savedMsg}</span>}
+          {(savedMsg || photoMsg) && (
+            <span className="mr-auto flex flex-col gap-0.5 text-sm">
+              {savedMsg && <span className="text-emerald-300">{savedMsg}</span>}
+              {photoMsg && (
+                <span role="status" className={photoMsg.tone === 'error' ? 'text-red-500' : photoMsg.tone === 'ok' ? 'text-emerald-300' : 'text-[var(--text-secondary)]'}>
+                  {photoMsg.text}
+                </span>
+              )}
+            </span>
+          )}
           {editingId && (
             <button
               type="button"

@@ -7,6 +7,7 @@ import EmptyState from './EmptyState'
 import { useStore } from '../store/useStore'
 import { useCostedStockOuts } from '../store/useCostedStockOuts'
 import { ddmmyyyyToSortable, toThaiDate } from '../utils/date'
+import ProductThumbnail from './ProductThumbnail'
 import { formatMoney, formatNumber } from '../utils/format'
 
 const TYPE_OPTIONS = [
@@ -18,6 +19,9 @@ const TYPE_OPTIONS = [
 // Search / edit / delete every row keyed in on the Stock In and Stock Out pages.
 export default function TransactionSearchPanel({ initialType = 'all', onBeforeNavigate, tableMaxHeight }) {
   const stockIns = useStore((s) => s.stockIns)
+  // product photos (display only) by product id
+  const products = useStore((s) => s.products)
+  const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
   // จ่ายออก rows show their FIFO cost, matching the reports
   const stockOuts = useCostedStockOuts()
   const deleteStockIn = useStore((s) => s.deleteStockIn)
@@ -34,6 +38,7 @@ export default function TransactionSearchPanel({ initialType = 'all', onBeforeNa
       type: 'in',
       id: t.id,
       date: t.date,
+      productId: t.productId,
       productCode: t.productCode,
       productName: t.productName,
       docNo: t.po,
@@ -48,6 +53,7 @@ export default function TransactionSearchPanel({ initialType = 'all', onBeforeNa
       type: 'out',
       id: t.id,
       date: t.date,
+      productId: t.productId,
       productCode: t.productCode,
       productName: t.productName,
       docNo: t.invoice || t.so,
@@ -169,7 +175,12 @@ export default function TransactionSearchPanel({ initialType = 'all', onBeforeNa
                   )}
                 </td>
                 <td className="px-3 py-3">{toThaiDate(r.date)}</td>
-                <td className="px-3 py-3 font-mono text-[var(--text-accent)]">{r.productCode}</td>
+                <td className="px-3 py-2 font-mono text-[var(--text-accent)]">
+                  <span className="flex items-center gap-2">
+                    <ProductThumbnail product={{ ...(productById.get(r.productId) || {}), code: r.productCode, name: r.productName }} size="xs" />
+                    {r.productCode}
+                  </span>
+                </td>
                 <td className="max-w-[260px] whitespace-normal break-words px-3 py-3">{r.productName}</td>
                 <td className="px-3 py-3 text-[var(--text-secondary)]">{r.docNo || '-'}</td>
                 <td className="px-3 py-3 text-[var(--text-secondary)]">{r.party || '-'}</td>
