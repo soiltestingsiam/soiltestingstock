@@ -6,6 +6,9 @@ import ProductQrModal from '../components/ProductQrModal'
 import DuplicateCodeModal from '../components/DuplicateCodeModal'
 import Pagination, { usePagination } from '../components/Pagination'
 import EmptyState from '../components/EmptyState'
+import ProductThumbnail from '../components/ProductThumbnail'
+import ProductImageUpload from '../components/ProductImageUpload'
+import { useMediaQuery, PHONE_QUERY } from '../utils/useMediaQuery'
 import MoneyInput from '../components/MoneyInput'
 import FormField, { inputClass } from '../components/FormField'
 import { useStore } from '../store/useStore'
@@ -24,6 +27,11 @@ export default function ProductList() {
   const updateProduct = useStore((s) => s.updateProduct)
   const deleteProduct = useStore((s) => s.deleteProduct)
   const applyProductImport = useStore((s) => s.applyProductImport)
+  const setProductImage = useStore((s) => s.setProductImage)
+  // product photo in the add / edit dialog (applied after the product itself is saved)
+  const [imagePending, setImagePending] = useState(null)
+  const [imageMsg, setImageMsg] = useState(null) // { text, tone: 'busy' | 'ok' | 'error' }
+  const phone = useMediaQuery(PHONE_QUERY)
 
   const [query, setQuery] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
@@ -77,13 +85,34 @@ export default function ProductList() {
   function openCreate() {
     setEditingId(null)
     setForm(emptyForm)
+    setImagePending(null)
     setModalOpen(true)
   }
 
   function openEdit(p) {
     setEditingId(p.id)
     setForm({ ...p, unitPrice: String(p.unitPrice), openingQty: String(p.openingQty) })
+    setImagePending(null)
     setModalOpen(true)
+  }
+
+  // after the product is saved: add / replace / remove its photo. A failed photo never
+  // undoes the product — it just says what went wrong.
+  async function applyImage(productId, code, pending, saving) {
+    setImageMsg({ text: `กำลังบันทึกรูปของ ${code}…`, tone: 'busy' })
+    await Promise.resolve(saving).catch(() => {})
+    const id = productId || useStore.getState().products.find((p) => p.code === code)?.id
+    if (!id) {
+      setImageMsg({ text: `ยังไม่ได้บันทึกรูป: ไม่พบสินค้า ${code}`, tone: 'error' })
+      return
+    }
+    const res = await setProductImage(id, pending)
+    setImageMsg(
+      res.ok
+        ? { text: pending.remove ? `ลบรูปของ ${code} แล้ว` : `บันทึกรูปของ ${code} เรียบร้อย`, tone: 'ok' }
+        : { text: `บันทึกสินค้า ${code} แล้ว แต่ยังไม่ได้บันทึกรูป — ${res.message}`, tone: 'error' },
+    )
+    if (res.ok) setTimeout(() => setImageMsg(null), 3500)
   }
 
   function handleSave() {
@@ -104,9 +133,10 @@ export default function ProductList() {
     // Changing ราคาหน่วยละ only sets the starting price for the next Stock In. Costs of
     // receipts already recorded are never rewritten (each lot keeps its real cost for
     // FIFO, as in the CD accounting program).
-    if (editingId) updateProduct(editingId, payload)
-    else addProduct(payload)
+    const saving = editingId ? updateProduct(editingId, payload) : addProduct(payload)
     setModalOpen(false)
+    if (imagePending) applyImage(editingId, payload.code, imagePending, saving)
+    setImagePending(null)
   }
 
   function handleDelete(p) {
@@ -244,10 +274,65 @@ export default function ProductList() {
         </div>
       )}
 
+      {imageMsg && (
+        <div
+          role="status"
+          className={`mb-4 rounded-lg px-4 py-2.5 text-sm ${
+            imageMsg.tone === 'error' ? 'bg-red-500/10 text-red-500' : imageMsg.tone === 'ok' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300' : 'bg-[var(--bg-surface-soft)] text-[var(--text-secondary)]'
+          }`}
+        >
+          {imageMsg.text}
+          {imageMsg.tone === 'error' && (
+            <button type="button" onClick={() => setImageMsg(null)} className="ml-2 underline">
+              ปิด
+            </button>
+          )}
+        </div>
+      )}
+
+      {phone ? (
+        // phone: one card per product — photo left; details and actions right
+        <ul className="flex flex-col gap-2">
+          {page.pageItems.map((p) => (
+            <li key={p.id} className="product-card flex items-start gap-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
+              <ProductThumbnail product={p} size="lg" />
+              <div className="min-w-0 flex-1">
+                <div className="font-mono text-sm font-semibold text-[var(--text-accent)]">
+                  {auraById[p.id] && <span className="product-aura" data-state={auraById[p.id][0]} title={auraById[p.id][1]} aria-label={auraById[p.id][1]} role="img" />}
+                  {p.code}
+                </div>
+                <div className="break-words text-sm text-[var(--text-primary)]">{p.name}</div>
+                <div className="mt-1 text-xs text-[var(--text-secondary)]">
+                  {formatNumber(p.openingQty)} {p.unit} · {formatMoney(p.unitPrice)} บาท/หน่วย
+                </div>
+                <div className="mt-1.5 flex items-center gap-1">
+                  <button onClick={() => setQrProduct(p)} title="QR Code" aria-label={`QR Code ${p.code}`} className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]">
+                    <QrCode size={15} />
+                  </button>
+                  <button onClick={() => openEdit(p)} title="แก้ไข" aria-label={`แก้ไข ${p.code}`} className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-hover-strong)] hover:text-[var(--text-primary)]">
+                    <Pencil size={15} />
+                  </button>
+                  <button onClick={() => handleDelete(p)} title="ลบ" aria-label={`ลบ ${p.code}`} className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-red-500/15 hover:text-red-400">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </div>
+            </li>
+          ))}
+          {filtered.length === 0 && (
+            <li className="rounded-xl border border-[var(--border-color)] px-4 py-6">
+              <EmptyState title="ไม่พบสินค้า" hint={query.trim() ? 'ลองค้นหาด้วยรหัสหรือชื่ออื่นดูนะ' : 'เริ่มต้นได้ด้วยการเพิ่มสินค้า หรือนำเข้าจากไฟล์ Excel'} />
+            </li>
+          )}
+        </ul>
+      ) : (
       <div className="overflow-x-auto rounded-xl border border-[var(--border-color)]">
-        <table className="w-full min-w-[720px] text-sm">
+        <table className="w-full min-w-[760px] text-sm">
           <thead>
             <tr className="bg-[var(--bg-surface-soft)] text-left text-[var(--text-secondary)]">
+              <th className="w-14 px-3 py-3 font-medium">
+                <span className="sr-only">รูปสินค้า</span>
+              </th>
               <th className="px-4 py-3 font-medium">รหัสสินค้า</th>
               <th className="px-4 py-3 font-medium">ชื่อสินค้า</th>
               <th className="px-4 py-3 text-right font-medium">จำนวน</th>
@@ -259,6 +344,9 @@ export default function ProductList() {
           <tbody>
             {page.pageItems.map((p) => (
               <tr key={p.id} className="border-t border-[var(--border-color-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
+                <td className="px-3 py-2">
+                  <ProductThumbnail product={p} size="sm" />
+                </td>
                 <td className="px-4 py-3 font-mono text-[var(--text-accent)]">
                   {auraById[p.id] && <span className="product-aura" data-state={auraById[p.id][0]} title={auraById[p.id][1]} aria-label={auraById[p.id][1]} role="img" />}
                   {p.code}
@@ -296,7 +384,7 @@ export default function ProductList() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6">
+                <td colSpan={7} className="px-4 py-6">
                   <EmptyState title="ไม่พบสินค้า" hint={query.trim() ? 'ลองค้นหาด้วยรหัสหรือชื่ออื่นดูนะ' : 'เริ่มต้นได้ด้วยการเพิ่มสินค้า หรือนำเข้าจากไฟล์ Excel'} />
                 </td>
               </tr>
@@ -304,6 +392,7 @@ export default function ProductList() {
           </tbody>
         </table>
       </div>
+      )}
       <Pagination
         page={page.page}
         totalPages={page.totalPages}
@@ -327,6 +416,13 @@ export default function ProductList() {
       />
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit product' : 'Add product'}>
+        <div className="mb-5">
+          <ProductImageUpload
+            imageUrl={editingId ? products.find((x) => x.id === editingId)?.imageUrl : null}
+            pending={imagePending}
+            onChange={setImagePending}
+          />
+        </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField label="รหัสสินค้า" required>
             <input

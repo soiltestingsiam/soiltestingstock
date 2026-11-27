@@ -7,6 +7,7 @@ import DateTextInput from '../components/DateTextInput'
 import TransactionSearchModal from '../components/TransactionSearchModal'
 import StockImportModal from '../components/StockImportModal'
 import ProductCodeField from '../components/ProductCodeField'
+import StockInProductPanel from '../components/StockInProductPanel'
 import MoneyInput from '../components/MoneyInput'
 import { WarehouseIllustration } from '../components/DashboardIllustrations'
 import { useStore } from '../store/useStore'
@@ -191,6 +192,11 @@ export default function StockIn() {
             <FormRow label="3. ชื่อสินค้า">
               <input value={form.productName} readOnly placeholder="ขึ้นอัตโนมัติจาก PRODUCT LIST" className={inputClass('cursor-not-allowed opacity-80')} />
             </FormRow>
+            {form.productCode.trim() && (
+              <FormRow label="รูปสินค้า">
+                <StockInProductPanel code={form.productCode} productId={form.productId} onCreated={(p) => handleProductSelect(p.code, p)} />
+              </FormRow>
+            )}
             <FormRow label="4. ผู้ผลิต / ผู้ขาย">
               <input value={form.supplier} onChange={set('supplier')} className={inputClass()} />
             </FormRow>

@@ -6,6 +6,7 @@ import { useAuthStore } from './useAuthStore'
 import { usePetStore } from './usePetStore'
 import { XP } from '../pet/petData'
 import { emitFx } from '../lib/fxBus'
+import { uploadProductImage, deleteProductImage } from '../utils/imageUpload'
 
 // "grand celebration" moments (confetti + fanfare) — decorative, sent after the work succeeded
 const GRAND_IMPORT_ROWS = 50
@@ -38,8 +39,17 @@ function rowToProduct(row) {
     unit: row.unit,
     unitPrice: Number(row.unit_price),
     openingQty: Number(row.opening_qty),
+    // product photo (migration 009) — display only; null when there is none / not installed
+    imageUrl: row.image_url ?? null,
+    imagePath: row.image_path ?? null,
   }
 }
+
+// a products UPDATE that touched the photo columns failed because 009 isn't installed
+function imageColumnMissing(error) {
+  return !!error && (error.code === 'PGRST204' || error.code === '42703' || /image_(url|path)/i.test(String(error.message || '')))
+}
+const IMAGE_DB_MISSING = 'ฐานข้อมูลยังไม่รองรับรูปสินค้า — ผู้ดูแลต้องรันไฟล์ supabase/migrations/009_product_images.sql ก่อน'
 
 function rowToMovement(row) {
   const base = {
@@ -341,12 +351,51 @@ export const useStore = create((set, get) => ({
   },
 
   deleteProduct: async (id) => {
+    const imagePath = get().products.find((p) => p.id === id)?.imagePath
     const { error } = await supabase.from('products').delete().eq('id', id)
     if (error) {
       alert(`ลบไม่สำเร็จ: ${error.message}`)
       return
     }
     await get().refetchProducts()
+    deleteProductImage(imagePath) // its photo goes too (best effort, never blocks)
+  },
+
+  // ---------- Product photo (migration 009) ----------
+  // change: { blob (compressed) } to add / replace · { remove: true } to delete.
+  // Only the two photo columns are written — nothing else about the product, and no stock
+  // data. Never throws: returns { ok: true } or { ok: false, message } (plain Thai), so a
+  // failed photo can never undo a product or Stock In that was already saved.
+  setProductImage: async (productId, change) => {
+    const product = get().products.find((p) => p.id === productId)
+    if (!product) return { ok: false, message: 'ไม่พบสินค้านี้ใน PRODUCT LIST' }
+    if (!change || (!change.blob && !change.remove)) return { ok: true }
+    const patchLocal = (imageUrl, imagePath) =>
+      set((s) => ({ products: s.products.map((p) => (p.id === productId ? { ...p, imageUrl, imagePath } : p)) }))
+    try {
+      if (change.remove) {
+        const { error } = await supabase.from('products').update({ image_url: null, image_path: null, updated_at: new Date().toISOString() }).eq('id', productId)
+        if (error) return { ok: false, message: imageColumnMissing(error) ? IMAGE_DB_MISSING : `ลบรูปไม่สำเร็จ: ${error.message}` }
+        patchLocal(null, null)
+        deleteProductImage(product.imagePath)
+        return { ok: true }
+      }
+      const up = await uploadProductImage(change, product.id)
+      if (up.error) return { ok: false, message: up.error }
+      const { error } = await supabase
+        .from('products')
+        .update({ image_url: up.image_url, image_path: up.image_path, updated_at: new Date().toISOString() })
+        .eq('id', productId)
+      if (error) {
+        deleteProductImage(up.image_path) // don't leave the new file behind
+        return { ok: false, message: imageColumnMissing(error) ? IMAGE_DB_MISSING : `บันทึกรูปไม่สำเร็จ: ${error.message}` }
+      }
+      patchLocal(up.image_url, up.image_path)
+      if (product.imagePath && product.imagePath !== up.image_path) deleteProductImage(product.imagePath)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, message: `บันทึกรูปไม่สำเร็จ: ${e?.message || 'ไม่ทราบสาเหตุ'}` }
+    }
   },
 
   // Folds every record in `mergeIds` into `keepId`: their Stock In/Out history is
@@ -362,10 +411,23 @@ export const useStore = create((set, get) => ({
       alert(`รวมรายการไม่สำเร็จ: ${moveErr.message}`)
       return
     }
+    // photos of the removed duplicates: the kept product takes one if it has none
+    const merged = get().products.filter((p) => mergeIds.includes(p.id) && p.imagePath)
     const { error: delErr } = await supabase.from('products').delete().in('id', mergeIds)
     if (delErr) {
       alert(`ลบสินค้าซ้ำไม่สำเร็จ: ${delErr.message}`)
       return
+    }
+    try {
+      let left = merged
+      if (!keep.imagePath && merged.length) {
+        const [first, ...rest] = merged
+        const { error } = await supabase.from('products').update({ image_url: first.imageUrl, image_path: first.imagePath }).eq('id', keepId)
+        left = error ? merged : rest
+      }
+      left.forEach((p) => deleteProductImage(p.imagePath))
+    } catch {
+      /* photos are extras — the merge itself is done */
     }
     await Promise.all([get().refetchProducts(), get().refetchMovements()])
   },

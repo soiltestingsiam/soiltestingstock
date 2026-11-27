@@ -117,6 +117,19 @@ npm run dev
 - ถ้ายังไม่รัน ระบบอื่นทำงานปกติ หน้าอันดับจะแจ้งว่ายังไม่ได้ติดตั้ง และ Supply Drop / ตู้เสื้อผ้าเก็บในเครื่องแทน
 - ไม่แตะตารางสต็อก สูตร FIFO หรือรายงานใด ๆ
 
+## รูปภาพสินค้า (ไม่บังคับ แต่แนะนำ)
+
+**ติดตั้ง (ครั้งเดียว):** Supabase → SQL Editor → วางเนื้อหาไฟล์
+`supabase/migrations/009_product_images.sql` → Run (ต้องรัน 002 มาก่อน · รันซ้ำได้)
+
+- เพิ่มคอลัมน์ `image_url`, `image_path` ในตาราง `products` และสร้างที่เก็บรูป (Storage bucket) `product-images`
+  แบบเปิดอ่านได้ (Public) — อัปโหลด/เปลี่ยน/ลบได้เฉพาะผู้ใช้ที่อนุมัติแล้ว
+- ถ้า SQL Editor ไม่ยอมสร้าง bucket ให้สร้างเองที่ Dashboard → Storage → New bucket → ชื่อ `product-images`,
+  เปิด Public bucket, จำกัดขนาด 2 MB, ชนิดไฟล์ `image/webp, image/jpeg, image/png` แล้วรันเฉพาะส่วน policy ในไฟล์
+- รูปถูกย่อในเบราว์เซอร์ก่อนอัปโหลด (ด้านยาวไม่เกิน 800 px, WebP/JPEG) — ประมาณ 50–150 KB ต่อรูป
+- ถ้ายังไม่รัน ระบบยังบันทึกสินค้าและรับ/จ่ายได้ตามปกติ แค่ปุ่มรูปจะแจ้งว่ายังไม่ได้ติดตั้ง
+- การพิมพ์และ PDF/Excel ไม่มีรูป (เหมือนเดิมทุกอย่าง) · การเปลี่ยนรูปถูกบันทึกใน LOG การใช้งานอัตโนมัติ
+
 ## Deploy (Vercel)
 
 ตั้งค่า Environment Variables `VITE_SUPABASE_URL` และ `VITE_SUPABASE_ANON_KEY`
