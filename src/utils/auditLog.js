@@ -18,6 +18,7 @@ const FIELD_LABELS = {
   unit: 'หน่วย',
   unit_price: 'ราคา/หน่วย',
   opening_qty: 'จำนวน (PRODUCT LIST)',
+  image_url: 'รูปภาพสินค้า',
   product_code: 'รหัสสินค้า',
   product_name: 'ชื่อสินค้า',
   direction: 'ประเภท',
@@ -45,7 +46,7 @@ const FIELD_LABELS = {
 }
 
 // technical columns never shown in the detail view
-const HIDDEN_FIELDS = new Set(['id', 'created_at', 'updated_at', 'product_id', 'import_batch_id', 'approved_by', 'approved_at', 'imported_at'])
+const HIDDEN_FIELDS = new Set(['id', 'created_at', 'updated_at', 'product_id', 'import_batch_id', 'approved_by', 'approved_at', 'imported_at', 'image_path'])
 
 const STATUS_LABELS = { pending: 'รออนุมัติ', approved: 'อนุมัติแล้ว', rejected: 'ไม่อนุมัติ' }
 
@@ -75,6 +76,8 @@ export function formatFieldValue(field, value) {
       return value === 'import' ? 'นำเข้าจากไฟล์' : 'บันทึกเอง'
     case 'status':
       return STATUS_LABELS[value] ?? value
+    case 'image_url':
+      return 'มีรูป' // the long storage link isn't useful to read here
     case 'year':
     case 'reference_year':
       return String(value)

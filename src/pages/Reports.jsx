@@ -14,6 +14,7 @@ import { exportAoaToExcel, exportElementToPdf, exportElementsToPdf } from '../ut
 import { currentBeYear, openingLabel, withoutLaterOpenings, yearLedger, yearRange, yearsWithData, yearCounts } from '../utils/yearView'
 import { emitFx } from '../lib/fxBus'
 import CountUp from '../components/CountUp'
+import ProductThumbnail from '../components/ProductThumbnail'
 
 const REPORT_OPTIONS = [
   {
@@ -911,6 +912,10 @@ function ItemLedgerTable({ product, ledger, selectable = false, checked = false,
             <Checkbox checked={checked} onChange={onToggle} label={`เลือก ${product.code}`} />
           </span>
         )}
+        {/* product photo — screen only (never printed, never in the PDF) */}
+        <span className="print-hide" data-pdf-hide>
+          <ProductThumbnail product={product} size="sm" />
+        </span>
         <span className="whitespace-nowrap text-[var(--text-secondary)]">
           รหัสสินค้า : <span className="font-semibold text-red-400">{product.code}</span>
         </span>
@@ -1204,6 +1209,9 @@ function AllStockSummaryReport() {
 // One A4-landscape sheet of the All-Stock Summary. `select` (on-screen only) adds the
 // checkbox column, which is marked data-pdf-hide so it never reaches the PDF.
 function SummarySheet({ rows, totals, periodText, openingText, empty = false, showTotals = true, select = null, highlightId = null }) {
+  // product photos by id (the summary rows carry only code / name / figures)
+  const products = useStore((s) => s.products)
+  const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
   return (
     <div className="report-a4-page min-h-[794px] rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-5">
       <div className="text-center text-lg font-bold text-[var(--text-primary)]">สรุปยอดสินค้าคงเหลือ รวมทุกคลัง</div>
@@ -1222,6 +1230,9 @@ function SummarySheet({ rows, totals, periodText, openingText, empty = false, sh
                   />
                 </th>
               )}
+              <th rowSpan={2} data-pdf-hide className="print-hide w-12 border-b border-[var(--border-color)] px-2 py-2 align-bottom">
+                <span className="sr-only">รูปสินค้า</span>
+              </th>
               <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-left align-bottom">รหัส</th>
               <th rowSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-left align-bottom">ชื่อสินค้า</th>
               <th colSpan={2} className="border-b border-[var(--border-color)] px-2 py-2 text-center text-red-400">{openingText}</th>
@@ -1249,6 +1260,11 @@ function SummarySheet({ rows, totals, periodText, openingText, empty = false, sh
                     <Checkbox checked={select.ids.has(r.id)} onChange={() => select.toggle(r.id)} label={`เลือก ${r.code}`} />
                   </td>
                 )}
+                {/* py-0.5: a 24 px photo stays shorter than the text cells, so the row is
+                    exactly as tall as before — the PDF capture (photos removed) matches */}
+                <td data-pdf-hide className="print-hide px-2 py-0.5 leading-none">
+                  <ProductThumbnail product={productById.get(r.id) || r} size="xs" block />
+                </td>
                 <td className="whitespace-nowrap px-2 py-2 font-mono text-[var(--text-accent)]">{r.code}</td>
                 <td className="max-w-[260px] whitespace-normal break-words px-2 py-2">{r.name}</td>
                 <td className={`${numCell} text-red-400`}>{formatNumber(r.opening.qty)}</td>
@@ -1263,6 +1279,7 @@ function SummarySheet({ rows, totals, periodText, openingText, empty = false, sh
             ))}
             {empty && (
               <tr>
+                <td data-pdf-hide className="print-hide" />
                 <td colSpan={select ? 11 : 10} className="px-4 py-8 text-center text-[var(--text-faint)]">ไม่มีข้อมูลสินค้า</td>
               </tr>
             )}
@@ -1271,6 +1288,7 @@ function SummarySheet({ rows, totals, periodText, openingText, empty = false, sh
             <tfoot>
               <tr className="border-t-2 border-[var(--border-color)] bg-amber-500/10 font-bold text-red-400">
                 {select && <td data-pdf-hide></td>}
+                <td data-pdf-hide className="print-hide"></td>
                 <td className="px-2 py-2.5 text-center" colSpan={2}>รวมเงิน</td>
                 <td></td>
                 <td className={numCell}>{formatMoney(totals.openingValue)}</td>

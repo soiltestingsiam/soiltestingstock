@@ -1730,3 +1730,14 @@ html[data-custom-cursor='ring'] .fx-cursor[data-state='pointer'] + .fx-ring svg 
 .mini-stage[data-stage-skin='minimal'] .mini-stage-ground { background: linear-gradient(90deg, transparent, #d4af37, transparent) 0 0 / 100% 1px no-repeat, #131314 }
 :root[data-spectacle='lite'] .mini-stage *, :root[data-pure-work] .mini-stage * { animation: none !important }
 @media (prefers-reduced-motion: reduce) { .mini-stage * { animation: none !important } }
+
+/* ======================================================================
+   🖼️ PRODUCT PHOTOS — thumbnails, upload box, lightbox: screen only.
+   Printing hides every photo (and the cells that hold them) so documents stay the plain,
+   white company layout; PDF captures drop them too (data-pdf-hide, see export.js).
+   ====================================================================== */
+.product-thumb img { display: block }
+.product-lightbox img { image-orientation: from-image }
+@media print {
+  .print-hide, .product-thumb, .product-image-upload, .product-lightbox, .quick-add { display: none !important }
+}
